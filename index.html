@@ -1,0 +1,2285 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>PROMPT LIBRARY</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src https://generativelanguage.googleapis.com;">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/dexie@3.2.4/dist/dexie.min.js"></script>
+  <style>
+    /* CSS Variables & Base Styles */
+    :root, [data-theme='dark'] {
+      --bg-color: #121214; --panel-bg: #1a1a1e; --header-bg: #252529;
+      --accent-color: #818cf8; --accent-hover: #a5b4fc;
+      --text-color: #e1e1e6; --text-dim: #a1a1aa;
+      --border-color: #323238; --hover-color: #3a3a40;
+      --active-bg-color: rgba(129, 140, 248, 0.15); --danger-color: #ff4d4d;
+      --active-glow: rgba(129, 140, 248, 0.3);
+      --tag-bg: #2a2a30;
+      --tag-border: #4a4a52;
+      --star-color: #ffcc00;
+      --rand-color: #e67e22;
+      --dynamic-color: #00acc1;
+      --uncategorized-color: #e0e000;
+      --newline-color: #d4d400;
+      --activity-bar-bg: #0d0d0f;
+      --glass-bg: rgba(0, 0, 0, 0.2);
+      --glass-border: rgba(255, 255, 255, 0.05);
+      --highlight-color: #ffb300; /* より高コントラストな鮮やかなアンバーに変更 */
+      --scrollbar-thumb: #4b5563;
+    }
+    [data-theme='light'] {
+      --bg-color: #f0f2f5; --panel-bg: #ffffff; --header-bg: #f8f9fa;
+      --accent-color: #4f46e5; --accent-hover: #4338ca;
+      --text-color: #1f2937; --text-dim: #6b7280;
+      --border-color: #e5e7eb; --hover-color: #e2e8f0;
+      --active-bg-color: rgba(79, 70, 229, 0.1); --danger-color: #dc2626;
+      --active-glow: rgba(79, 70, 229, 0.2);
+      --tag-bg: #e5e7eb;
+      --tag-border: #d1d5db;
+      --star-color: #d97706;
+      --rand-color: #c2410c;
+      --dynamic-color: #0891b2;
+      --newline-color: #65a30d;
+      --uncategorized-color: #854d0e;
+      --activity-bar-bg: #e2e8f0;
+      --glass-bg: rgba(0, 0, 0, 0.05);
+      --glass-border: rgba(0, 0, 0, 0.05);
+      --highlight-color: #ffeb3b; /* 鮮やかなイエローに変更 */
+      --scrollbar-thumb: #9ca3af;
+    }
+    :root {
+      --activity-bar-width: 48px;
+      --input-bg: var(--glass-bg);
+    }
+    body { margin: 0; font-family: 'Noto Sans JP', sans-serif; background: var(--bg-color); color: var(--text-color); display: flex; height: 100vh; flex-direction: column; overflow: hidden; font-size: 0.85rem; }
+    * { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 10px; border: 2px solid var(--bg-color); }
+    ::-webkit-scrollbar-thumb:hover { background: var(--accent-color); }
+
+    /* Layout Containers */
+    .app-container { display: flex; flex: 1; overflow: hidden; width: 100vw; }
+    #sidebar { width: 280px; min-width: 200px; max-width: 400px; background: var(--panel-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; flex-shrink: 0; }
+    #main-content { flex-grow: 1; min-width: 320px; background: var(--panel-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; overflow: hidden; position: relative; }
+    #right-sidebar { width: 450px; min-width: 300px; max-width: 800px; background: var(--bg-color); display: flex; flex-direction: column; flex-shrink: 0; z-index: 10; position: relative; }
+
+    /* Resizers */
+    .resizer-v { width: 4px; cursor: col-resize; z-index: 120; background: var(--border-color); flex-shrink: 0; transition: .2s; }
+    .resizer-h { height: 4px; cursor: row-resize; z-index: 120; background: var(--border-color); flex-shrink: 0; transition: .2s; }
+    .resizer-v:hover, .resizer-h:hover { background: var(--accent-color); }
+
+    /* Activity Bar & Headers */
+    .activity-bar { width: var(--activity-bar-width); background: var(--activity-bar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; align-items: center; padding-top: 10px; flex-shrink: 0; z-index: 100; }
+    .activity-btn { width: 100%; height: 48px; display: flex; justify-content: center; align-items: center; color: var(--text-dim); cursor: pointer; font-size: 1.2rem; transition: .2s; position: relative; }
+    .activity-btn:hover, .activity-btn.active { color: var(--text-color); }
+    .activity-btn.active { color: var(--accent-color); }
+    .activity-btn.active::before { content: ""; position: absolute; left: 0; top: 10%; height: 80%; width: 3px; background: var(--accent-color); border-radius: 0 2px 2px 0; }
+    .tab-content { flex-grow: 1; overflow: hidden; display: none; flex-direction: column; }
+    .tab-content.active { display: flex; }
+    .sidebar-header, .main-header, .ws-header { height: 43px; box-sizing: border-box; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.5px; border-bottom: 1px solid var(--border-color); background: var(--header-bg); flex-shrink: 0; z-index: 110; line-height: 1; }
+    .sidebar-header > span, .ws-header > span { display: flex; align-items: center; }
+
+    /* Sidebar / Filters */
+    .search-box { padding: 12px; border-bottom: 1px solid var(--border-color); background: var(--bg-color); }
+    .search-input { width: 100%; box-sizing: border-box; background: var(--input-bg); border: 1px solid var(--border-color); color: var(--text-color); padding: 8px; border-radius: 4px; outline: 0; font-family: 'Noto Sans JP', sans-serif; }
+    .search-input:focus { border-color: var(--accent-color); box-shadow: 0 0 5px var(--active-glow); }
+    .filter-section { padding: 15px 12px; border-bottom: 1px dashed var(--border-color); }
+    .filter-title { font-size: .7rem; color: var(--text-dim); font-weight: 700; margin-bottom: 10px; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; }
+    .star-rating { display: flex; gap: 4px; color: var(--border-color); font-size: 1.4rem; cursor: pointer; user-select: none; }
+    .star-rating .material-symbols-outlined { transition: .2s; }
+    .star-rating .material-symbols-outlined.active { color: var(--star-color); font-variation-settings: 'FILL' 1; }
+    .star-rating .material-symbols-outlined:hover, .star-rating .material-symbols-outlined:has(~ .material-symbols-outlined:hover) { text-shadow: 0 0 10px var(--accent-color); }
+    .tag-list { display: flex; flex-wrap: wrap; gap: 6px; overflow-y: auto; max-height: 400px; align-content: flex-start; }
+    .tag-chip { background: var(--tag-bg); border: 1px solid var(--tag-border); color: var(--text-color); padding: 4px 10px; border-radius: 12px; font-size: .75rem; cursor: pointer; transition: .2s; user-select: none; display: flex; align-items: center; gap: 4px; }
+    .tag-chip:not(.active):hover:not(.grayed-out) { border-color: var(--accent-color); background: var(--active-bg-color); }
+    .tag-chip.active:hover { filter: brightness(1.1); box-shadow: 0 0 8px var(--active-glow); }
+    .tag-chip.grayed-out { opacity: 0.25; filter: grayscale(1); pointer-events: none; }
+    .tag-chip.active { background: var(--accent-color); color: #fff; font-weight: 700; }
+    .tag-chip.missing-tag { border-color: var(--danger-color); color: var(--danger-color); }
+    .tag-chip.missing-tag.active { background: var(--danger-color); color: #fff; }
+    .tag-chip.uncategorized-tag { border-color: var(--uncategorized-color); color: var(--uncategorized-color); }
+    .tag-chip.uncategorized-tag.active { background: var(--uncategorized-color); color: #000; }
+    .tag-chip.not-active { background: var(--danger-color); color: #fff; font-weight: 700; border-color: var(--danger-color); }
+    .item-tag.missing-tag, .detail-tag.missing-tag, .tag-chip.missing-tag { 
+      border-color: var(--danger-color); color: var(--danger-color); background: rgba(255, 77, 77, 0.1); border-style: solid; }
+    .item-tag.uncategorized-tag, .tag-chip.uncategorized-tag, .detail-tag.uncategorized-tag { 
+      border-color: var(--uncategorized-color); color: var(--uncategorized-color); background: rgba(224, 224, 0, 0.15); border-style: solid; }
+
+    /* Main Content / Dashboard */
+    #dashboard-area { flex-grow: 1; overflow-y: auto; padding: 15px; background: var(--bg-color); user-select: none; }
+    .prompt-table { border-collapse: separate; border-spacing: 0 6px; width: 100%; table-layout: fixed; }
+    .prompt-table td { padding: 4px 8px; vertical-align: middle; background: var(--panel-bg); border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); }
+    .prompt-table td:first-child { border-left: 1px solid var(--border-color); border-top-left-radius: 6px; border-bottom-left-radius: 6px; }
+    .prompt-table td:last-child { border-right: 1px solid var(--border-color); border-top-right-radius: 6px; border-bottom-right-radius: 6px; }
+    .prompt-table tr { transition: background .1s ease; cursor: pointer; }
+    .prompt-table tr:hover td { background: rgba(129, 140, 248, .05); }
+    .prompt-table tr.selected-row td { background: var(--active-bg-color) !important; border-color: var(--accent-color); }
+    .prompt-content-cell { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px !important; }
+    .prompt-content-row { display: flex; flex-direction: column; width: 100%; }
+    .drag-handle-cell { width: 32px; padding: 0 !important; cursor: grab; position: relative; }
+    .drag-handle-cell:first-child { border-right: 1px solid var(--glass-border) !important; }
+    .drag-handle-cell:last-child { border-left: 1px solid var(--glass-border) !important; }
+    .drag-handle-cell:hover { background: rgba(129, 140, 248, 0.15) !important; }
+    .drag-handle-cell span { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 1.4rem; color: var(--text-dim); opacity: .3; display: flex; align-items: center; justify-content: center; user-select: none; transition: 0.1s; pointer-events: none; }
+    .drag-handle-cell:hover span { opacity: 1; color: var(--accent-color); }
+    .drag-top td, .drag-bottom td { position: relative; }
+    .drag-top td::before, .drag-bottom td::after {
+      content: ""; position: absolute; left: 0; right: 0; height: 4px;
+      background: var(--accent-color); z-index: 100; pointer-events: none;
+      box-shadow: 0 0 8px var(--active-glow);
+    }
+    .drag-top td::before { top: -5px; }
+    .drag-bottom td::after { bottom: -5px; }
+    .drag-top td:first-child::before, .drag-bottom td:first-child::after { border-radius: 2px 0 0 2px; }
+    .drag-top td:last-child::before, .drag-bottom td:last-child::after { border-radius: 0 2px 2px 0; }
+    /* サムネイル部分の挿入ラインが見切れるのを修正 */
+    .prompt-table tr.drag-top td:nth-child(2),
+    .prompt-table tr.drag-bottom td:nth-child(2) {
+      overflow: visible !important;
+    }
+    .prompt-table tr.drag-over-row td, body.file-dragging .prompt-table tr.drag-over-row td { position: relative; background: rgba(129, 140, 248, 0.15) !important; }
+    .prompt-table tr.drag-over-row td::after, body.file-dragging .prompt-table tr.drag-over-row td::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; border-top: 2px dashed var(--accent-color); border-bottom: 2px dashed var(--accent-color); background: rgba(129, 140, 248, 0.15); pointer-events: none; z-index: 500; animation: none !important; opacity: 1 !important; }
+    .prompt-table tr.drag-over-row td:first-child::after, body.file-dragging .prompt-table tr.drag-over-row td:first-child::after { border-left: 2px dashed var(--accent-color); border-top-left-radius: 6px; border-bottom-left-radius: 6px; }
+    .prompt-table tr.drag-over-row td:last-child::after, body.file-dragging .prompt-table tr.drag-over-row td:last-child::after { border-right: 2px dashed var(--accent-color); border-top-right-radius: 6px; border-bottom-right-radius: 6px; }
+    .grid-textarea { background: transparent; border: 1px solid transparent; color: var(--text-color); padding: 4px 6px; width: 100%; box-sizing: border-box; resize: none; overflow: hidden; min-height: 28px; height: auto !important; field-sizing: content; font-size: .85rem; font-family: 'JetBrains Mono', monospace; line-height: 1.4; transition: all .2s; display: block; margin: 0; border-radius: 4px; cursor: text; }
+    .grid-textarea[id$="-ja"] { font-family: 'Noto Sans JP', sans-serif; font-size: .75rem; color: var(--text-dim); opacity: .8; }
+    .selected-row .grid-textarea[id$="-ja"] { color: var(--text-color); }
+    .grid-textarea[id$="-en"] { color: var(--accent-color); font-weight: 700; font-size: .9rem; }
+    .grid-textarea:hover { border-color: var(--accent-color); background: var(--input-bg); }
+    .grid-textarea:focus { border-color: var(--accent-color); background: var(--bg-color); outline: 0; box-shadow: 0 0 8px var(--active-glow); cursor: text; }
+    .locked-textarea { background: transparent !important; border-color: transparent !important; cursor: text !important; opacity: 1; }
+    .grid-note-area { font-size: 0.8rem !important; color: var(--text-color) !important; min-height: 40px !important; }
+    .grid-note-area:hover { border-color: var(--accent-color) !important; }
+    .thumb-strip { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--input-bg); overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    .item-thumb { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .thumb-container { position: relative; border: 1px solid var(--border-color); border-radius: 4px; overflow: hidden; display: flex; align-items: center; justify-content: center; background: var(--input-bg); }
+    .thumb-container.drag-over-thumb, body.file-dragging .thumb-container.drag-over-thumb { z-index: 100; background: rgba(129, 140, 248, 0.2) !important; }
+    .thumb-container.drag-over-thumb::before, body.file-dragging .thumb-container.drag-over-thumb::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; border: 2px dashed var(--accent-color); background: rgba(129, 140, 248, 0.1); pointer-events: none; z-index: 500; animation: none !important; opacity: 1 !important; }
+    .item-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; align-items: center; }
+    .item-tag { font-size: .65rem; background: var(--tag-bg); border: 1px solid var(--tag-border); padding: 2px 6px; border-radius: 8px; color: var(--text-color); }
+    .selected-row .item-tag:not(.missing-tag) { color: var(--accent-color); border-color: var(--accent-color); background: rgba(129, 140, 248, 0.1); }
+    /* メモありセルのホバー演出 */
+    .prompt-content-cell[title]:hover .note-icon { color: var(--accent-hover) !important; transform: scale(1.2); opacity: 1 !important; }
+    .note-icon { transition: transform 0.2s ease, color 0.2s ease, opacity 0.2s ease; }
+
+    .input-group { display: flex; align-items: stretch; background: var(--glass-bg); border: 1px solid var(--border-color); border-radius: 3px; overflow: hidden; transition: .1s; }
+    .input-group:focus-within { border-color: var(--accent-color); box-shadow: 0 0 4px rgba(129, 140, 248, .2); }
+    .input-group:hover:not(:focus-within) { border-color: rgba(129, 140, 248, .5); }
+    .input-group:has(.locked-textarea) { border-color: transparent !important; background: transparent !important; }
+    .input-group .grid-textarea { border: none !important; }
+    .btn-inline-add { background: var(--accent-color); color: var(--bg-color); border: none; width: 32px; height: 32px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .15s ease-out; opacity: 0; visibility: hidden; transform: scale(0.9); }
+    .btn-inline-add span { font-size: 1.2rem; }
+    .btn-inline-add:hover { background: var(--accent-hover); transform: scale(1.1); box-shadow: 0 0 8px rgba(122, 162, 247, .4); }
+    .prompt-table tr:hover .btn-inline-add, .prompt-table tr.selected-row .btn-inline-add { opacity: 1; visibility: visible; transform: scale(1); }
+
+    /* Quick Add Bar */
+    #quick-add-bar { background: var(--header-bg); border-top: 1px solid var(--border-color); padding: 12px 15px; flex-shrink: 0; z-index: 10; box-shadow: 0 -4px 12px rgba(0, 0, 0, .2); position: relative; }
+    .qa-inputs { display: flex; gap: 10px; align-items: stretch; }
+    .qa-wrapper { position: relative; display: flex; align-items: center; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 4px; transition: .2s; }
+    .qa-wrapper:focus-within { border-color: var(--accent-color); box-shadow: 0 0 5px var(--active-glow); }
+    .qa-wrapper .icon { font-size: 1.1rem; color: var(--text-dim); margin-left: 8px; }
+    .qa-wrapper input, .qa-wrapper textarea { background: transparent; border: none; color: var(--text-color); padding: 10px; width: 100%; outline: 0; font-family: 'Noto Sans JP', sans-serif; font-size: .85rem; line-height: 1.4; resize: none; field-sizing: content; min-height: 38px; box-sizing: border-box; display: block; }
+    ::placeholder { color: var(--text-dim) !important; opacity: 0.6; }
+    .qa-btn { background: var(--accent-color); color: #fff; border: none; border-radius: 4px; padding: 0 20px; font-weight: 700; cursor: pointer; display: flex; align-items: center; transition: .2s; }
+    .qa-btn:not(:disabled):hover { background: var(--accent-hover); box-shadow: 0 0 8px rgba(129, 140, 248, .5); transform: scale(1.02); }
+    .qa-btn:disabled { opacity: 0.6; cursor: default; pointer-events: none; }
+
+    /* Quick Add Thumbnail Preview */
+    .qa-thumb-preview-container { position: relative; width: 60px; height: 60px; border: 1px solid var(--border-color); border-radius: 4px; overflow: hidden; background: var(--bg-color); display: none; flex-shrink: 0; }
+    .qa-thumb-preview-container img { width: 100%; height: 100%; object-fit: cover; }
+    .qa-thumb-remove { position: absolute; top: 0; right: 0; background: rgba(0,0,0,0.5); color: #fff; cursor: pointer; font-size: 1rem; padding: 2px; border-radius: 0 0 0 4px; transition: .2s; }
+    .qa-thumb-remove:hover { color: var(--danger-color); background: rgba(0,0,0,0.8); }
+    /* ファイルがセットされている時の入力欄の調整 */
+    .qa-inputs.has-thumb .qa-wrapper:first-child { width: calc(35% - 70px); }
+
+
+    /* Right Sidebar (Details & Workspace) */
+    .detail-panel { padding: 0; display: flex; flex-direction: column; flex: none; height: 500px; overflow-y: auto; background: var(--panel-bg); }
+    .detail-group { display: flex; flex-direction: column; gap: 5px; flex-shrink: 0; }
+    .detail-section { display: flex; flex-direction: column; gap: 12px; padding: 8px; width: 100%; box-sizing: border-box; }
+    .detail-label { font-size: .75rem; color: var(--text-dim); font-weight: 700; }
+    .detail-input { background: var(--input-bg); border: 1px solid var(--border-color); color: var(--text-color); padding: 4px 6px; border-radius: 4px; font-family: 'Consolas', monospace; font-size: .85rem; width: 100%; box-sizing: border-box; transition: .2s; line-height: 1.4; }
+    .detail-input:focus { border-color: var(--accent-color); outline: 0; }
+    .detail-textarea { resize: none; min-height: 28px; field-sizing: content; height: auto !important; }
+    .empty-detail { color: var(--text-dim); font-size: .85rem; text-align: center; padding: 30px; font-style: italic; }
+    .sort-select { background: var(--header-bg); border: 1px solid var(--border-color); color: var(--text-dim); font-size: .85rem; border-radius: 4px; padding: 4px 8px; outline: 0; cursor: pointer; font-family: inherit; }
+    .sort-select:hover { color: var(--text-color); border-color: var(--accent-color); }
+    .ws-body { padding: 15px; display: flex; flex-direction: column; gap: 15px; flex-grow: 1; min-height: 0; box-sizing: border-box; overflow-y: auto; }
+    .ws-panel { display: flex; flex-direction: column; gap: 8px; }
+    .ws-panel-grow { flex-grow: 1; min-height: 0; }
+    .ws-panel-shrink { flex-shrink: 0; }
+    .ws-label { color: var(--accent-color); font-size: .85rem; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+    .ws-hint { font-size: .7rem; font-weight: 400; color: var(--text-dim); }
+
+    /* Workspace Lanes */
+    #ws-lanes-container { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 10px 0; box-sizing: border-box; position: relative; }
+    .ws-lane { display: flex; flex-direction: column; border: 1px solid var(--border-color); border-radius: 4px; background: var(--panel-bg); transition: border-color 0.2s, box-shadow 0.2s; }
+    .ws-lane.active-lane { border-color: var(--accent-color); box-shadow: 0 0 10px rgba(129, 140, 248, 0.15); }
+    .ws-lane-header { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background: var(--header-bg); border-bottom: 1px solid var(--border-color); font-size: 0.75rem; color: var(--text-dim); }
+    .ws-lane-body { padding: 10px; display: flex; flex-direction: row; flex-wrap: wrap; gap: 0 6px; align-content: flex-start; align-items: center; min-height: 42px; cursor: text; }
+    .ws-lane-body > .prompt-chip { margin-bottom: 10px; }
+    .ws-inline-input { background: transparent; border: none; outline: none; color: var(--text-color); font-family: 'JetBrains Mono', monospace; font-size: .75rem; padding: 4px; flex: 1; min-width: 150px; margin-bottom: 10px; }
+    
+    /* Buttons */
+    .btn { background: var(--header-bg); color: var(--text-color); border: 1px solid var(--border-color); padding: 6px 12px; border-radius: 3px; cursor: pointer; font-size: .85rem; display: flex; justify-content: center; align-items: center; transition: .2s; }
+    .btn:hover { background: var(--hover-color); }
+    .btn-accent { background: var(--accent-color); color: #fff; font-weight: 700; border: 0; }
+    .btn-accent:hover { background: var(--accent-hover); }
+    .btn-sm { padding: 4px 8px; font-size: .75rem; }
+    .btn-row { display: flex; gap: 5px; width: 100%; }
+    .btn-icon-sm { background: transparent; border: none; color: var(--text-dim); cursor: pointer; transition: .2s; padding: 4px; border-radius: 4px; }
+    .btn-icon-sm:hover { color: var(--accent-color); background: rgba(255, 255, 255, 0.05); }
+    .btn-toggle-edit { display: flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; background: transparent; border: 1px solid var(--border-color); color: var(--text-dim); cursor: pointer; transition: 0.2s; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.5px; user-select: none; }
+    .btn-toggle-edit:hover { border-color: var(--accent-color); color: var(--text-color); }
+    .btn-toggle-edit.active-mode { background: var(--accent-color) !important; border-color: var(--accent-color) !important; color: #fff !important; box-shadow: 0 0 12px rgba(129, 140, 248, 0.4); }
+    
+    .lane-drag-handle { cursor: grab; color: var(--text-dim); opacity: 0.4; transition: 0.2s; margin-right: 4px; user-select: none; }
+    .lane-drag-handle:hover { opacity: 1; color: var(--accent-color); }
+    .ws-lane.lane-dragging { opacity: 0.5; border: 2px dashed var(--accent-color); }
+    .ws-lane.lane-active-press { transform: scale(0.995); transition: transform 0.05s ease; }
+    .ws-lane.lane-drag-over-top, .ws-lane.lane-drag-over-bottom { position: relative; }
+    .ws-lane.lane-drag-over-top::before, .ws-lane.lane-drag-over-bottom::after {
+      content: ""; position: absolute; left: 0; right: 0; height: 4px;
+      background: var(--accent-color); z-index: 100; pointer-events: none;
+      box-shadow: 0 0 8px var(--active-glow); border-radius: 2px;
+    }
+    .ws-lane.lane-drag-over-top::before { top: -9px; }
+    .ws-lane.lane-drag-over-bottom::after { bottom: -9px; }
+
+    .prompt-chip { position: relative; background: var(--header-bg); border: 1px solid var(--accent-color); padding: 2px 6px; border-radius: 4px; font-size: .75rem; font-family: 'JetBrains Mono', monospace; cursor: pointer; display: flex; align-items: center; white-space: nowrap; user-select: none; transition: .2s; }
+    .prompt-chip:hover { border-color: var(--accent-color); background: var(--active-bg-color); box-shadow: 0 0 8px var(--active-glow); }
+    .prompt-chip.selected-chip { box-shadow: 0 0 10px var(--accent-color); background: rgba(129, 140, 248, .3) !important; z-index: 5; }
+    .prompt-chip.chip-break { border-color: var(--danger-color) !important; color: var(--danger-color) !important; font-weight: 700; }
+    .prompt-chip.chip-random { border-color: var(--rand-color) !important; background: rgba(255, 158, 100, 0.05); padding: 1px 4px; gap: 4px; display: inline-flex; align-items: center; }
+    .prompt-chip.chip-rand-control { border-color: var(--rand-color) !important; color: var(--rand-color) !important; font-weight: 700; background: rgba(255, 158, 100, 0.1); }
+    .prompt-chip.chip-in-rand { background: rgba(255, 158, 100, 0.08) !important; border-color: rgba(255, 158, 100, 0.5) !important; }
+    .prompt-chip.chip-dynamic { border-color: var(--dynamic-color) !important; background: rgba(0, 255, 255, 0.1); padding: 0 2px; }
+    .prompt-chip.chip-newline { border-color: var(--newline-color) !important; color: var(--newline-color) !important; font-weight: 700; }
+    .chip-insert-left::before, .chip-insert-right::after { 
+      content: ""; position: absolute; top: -2px; bottom: -2px; width: 4px; 
+      background: var(--accent-color); z-index: 10; pointer-events: none; 
+      box-shadow: 0 0 8px var(--accent-color); border-radius: 2px;
+    }
+    .chip-insert-left::before { left: -5px; }
+    .chip-insert-right::after { right: -5px; }
+    .prompt-chip.dragging { opacity: 0.4; border-style: dashed; transform: scale(0.95); }
+    .ws-lane-body.drag-over-ws { background: rgba(129, 140, 248, 0.08) !important; outline: 2px dashed var(--accent-color); outline-offset: -4px; }
+    .random-slot { border: 1px dashed #ff9e6488; border-radius: 3px; padding: 2px 4px; min-width: 30px; min-height: 24px; display: inline-flex; align-items: center; gap: 2px; flex-wrap: wrap; transition: .2s; background: var(--input-bg); }
+    /* Highlight for note icon when search matches */
+    .hl-note-icon {
+      background-color: rgba(129, 140, 248, 0.4);
+      border-radius: 2px;
+      opacity: 1 !important;
+    }
+    .random-slot:hover, .random-slot.drag-over { background: rgba(255, 158, 100, 0.2); border-color: var(--rand-color); }
+    .random-sep { color: var(--rand-color); font-weight: 700; display: flex; align-items: center; padding: 0 2px; }
+    .btn-add-slot { color: var(--rand-color); cursor: pointer; display: flex; align-items: center; padding: 0 4px; border-radius: 3px; transition: .2s; }
+    .btn-add-slot:hover { background: rgba(255, 158, 100, 0.2); }
+    .chip-select-el { background: transparent; color: var(--accent-color); border: none; outline: none; font-family: inherit; font-size: inherit; font-weight: 700; cursor: pointer; padding: 2px 4px; }
+    .chip-select-el.dynamic-sel { color: var(--dynamic-color); }
+
+    /* Details Panel Tags */
+    .detail-meta-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0; }
+    .detail-tag-list { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+    .detail-tag { font-size: .7rem; background: var(--tag-bg); border: 1px solid var(--tag-border); color: var(--text-color); padding: 2px 6px; border-radius: 12px; display: flex; align-items: center; gap: 4px; }
+    .detail-tag-del { cursor: pointer; opacity: .5; transition: .2s; font-size: .8rem; }
+    .detail-tag-del:hover { opacity: 1; color: var(--danger-color); }
+
+    /* Filter Active Highlight */
+    .filter-active-area {
+      border: 1px solid var(--accent-color) !important;
+      border-radius: 6px;
+      box-shadow: inset 0 0 10px var(--active-glow), 0 0 8px var(--active-glow);
+      background: rgba(129, 140, 248, 0.03);
+    }
+
+    /* =========================================
+       Toggles & Utilities
+       ========================================= */
+    .toggle-group { display: inline-flex; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 4px; overflow: hidden; margin-right: 6px; vertical-align: middle; }
+    .toggle-item { background: transparent; border: none; color: var(--text-dim); font-size: .75rem; font-weight: 700; padding: 4px 10px; cursor: pointer; transition: .2s; border-right: 1px solid var(--border-color); min-width: 40px; line-height: 1; }
+    .toggle-item:last-child { border-right: none; }
+    .toggle-item:hover { background: var(--hover-color); color: var(--text-color); }
+    .toggle-item.active { background: var(--accent-color); color: #fff; }
+    .mr-6 { margin-right: 6px; }
+    .text-danger { color: var(--danger-color) !important; }
+    .flex-1 { flex: 1; }
+
+    /* Animations & Toast */
+    #mouse-toast { position: fixed; pointer-events: none; background: rgba(28, 28, 33, .95); color: #fff; border: 1px solid var(--accent-color); padding: 4px 11px; border-radius: 4px; font-size: .8rem; z-index: 9999; display: none; transform: translate(15px, -100%); white-space: nowrap; }
+    .toast-animate { display: block !important; animation: toast-fade 1s ease-out forwards; }
+    @keyframes toast-fade { 0% { opacity: 0; } 15%, 75% { opacity: 1; } 100% { opacity: 0; } }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+    @keyframes think { 0%, 100% { transform: translateY(0) scale(1); opacity: 1; } 50% { transform: translateY(-3px) scale(1.15); opacity: 0.6; } }
+    @keyframes highlight-glow { 0% { box-shadow: 0 0 0px 0px rgba(129, 140, 248, 0.7); } 50% { box-shadow: 0 0 12px 2px rgba(129, 140, 248, 0.7); } 100% { box-shadow: 0 0 0px 0px rgba(129, 140, 248, 0); } }
+    .focus-highlight-animation { animation: highlight-glow 1.5s ease-out forwards; }
+    .thinking { animation: think 0.8s ease-in-out infinite; display: inline-block; }
+
+    /* Highlights within text areas */
+    .textarea-wrapper { position: relative; flex: 1; min-width: 0; display: flex; }
+    .highlight-backdrop { position: absolute; top: 0; left: 0; right: 0; bottom: 0; padding: 4px 6px; line-height: 1.4; white-space: pre-wrap; word-wrap: break-word; color: transparent; pointer-events: none; overflow-y: auto; scrollbar-width: none; z-index: 1; box-sizing: border-box; border: 1px solid transparent; }
+    .highlight-backdrop[id$="-ja"] { font-family: 'Noto Sans JP', sans-serif; font-size: .75rem; }
+    .highlight-backdrop[id$="-note"] { font-family: 'Noto Sans JP', sans-serif; font-size: 0.7rem; }
+    .highlight-backdrop[id$="-en"] { font-family: 'JetBrains Mono', monospace; font-size: .9rem; font-weight: 700; }
+    .highlight-backdrop::-webkit-scrollbar { display: none; }
+.hl-mark { background-color: var(--highlight-color); border-radius: 2px; color: #000 !important; font-weight: bold; box-shadow: 0 0 4px rgba(0,0,0,0.3); }
+
+    /* =========================================
+       Modals & Context Menu
+       ========================================= */
+    .context-menu { position: fixed; display: none; background: var(--header-bg); border: 1px solid var(--border-color); box-shadow: 0 4px 12px rgba(0, 0, 0, .5); z-index: 10000; border-radius: 4px; padding: 4px 0; min-width: 120px; }
+    .context-menu-item { padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--text-color); transition: .1s; }
+    .context-menu-item:hover { background: var(--hover-color); color: var(--accent-color); }
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 10000; display: none; align-items: center; justify-content: center; }
+    .modal-content { background: var(--header-bg); border: 1px solid var(--accent-color); border-radius: 8px; padding: 20px; width: 400px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); }
+    .modal-header { font-size: 1rem; font-weight: 700; color: var(--accent-color); margin-bottom: 15px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+    .shortcut-list { display: flex; flex-direction: column; gap: 10px; }
+    .shortcut-item { display: flex; justify-content: space-between; font-size: 0.85rem; align-items: center; }
+    .shortcut-key { background: var(--bg-color); border: 1px solid var(--border-color); padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; color: var(--accent-hover); font-size: 0.75rem; }
+    .row-active { transform: scale(0.995); transition: transform 0.05s ease; }
+    .row-active td { background: rgba(129, 140, 248, 0.3) !important; }
+
+    /* ファイルドラッグ時のドロップ可能エリアの全体的な強調表示 (薄いヒント) */
+    .file-dragging .prompt-table tr td { position: relative; }
+    .file-dragging .prompt-table tr td::after {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      border-top: 2px dashed rgba(129, 140, 248, 0.4);
+      border-bottom: 2px dashed rgba(129, 140, 248, 0.4);
+      background: rgba(129, 140, 248, 0.05);
+      pointer-events: none; z-index: 400;
+      animation: pulse-drop-hint 2s infinite ease-in-out;
+    }
+    .file-dragging .prompt-table tr td:first-child::after {
+      border-left: 2px dashed rgba(129, 140, 248, 0.4);
+      border-top-left-radius: 6px; border-bottom-left-radius: 6px;
+    }
+    .file-dragging .prompt-table tr td:last-child::after {
+      border-right: 2px dashed rgba(129, 140, 248, 0.4);
+      border-top-right-radius: 6px; border-bottom-right-radius: 6px;
+    }
+    .file-dragging .thumb-container::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      border: 2px dashed rgba(129, 140, 248, 0.4);
+      background: rgba(129, 140, 248, 0.05);
+      pointer-events: none; z-index: 400;
+      animation: pulse-drop-hint 2s infinite ease-in-out;
+    }
+    .file-dragging .ws-body::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      border: 2px dashed rgba(16, 185, 129, 0.4); /* エメラルドグリーン系で区別 */
+      background: rgba(16, 185, 129, 0.05);
+      pointer-events: none; z-index: 400;
+      animation: pulse-drop-hint 2s infinite ease-in-out;
+    }
+
+    .file-dragging .ws-body { position: relative; }
+    .file-dragging .ws-body::before { margin: 10px; border-radius: 8px; }
+    /* ホバー時の強い強調 */
+    .ws-body.file-drag-over::before {
+      border-color: #10b981;
+      background: rgba(16, 185, 129, 0.15);
+      opacity: 1 !important;
+      animation: none;
+      border-width: 2px;
+    }
+    /* クイック追加バーへのドラッグヒント */
+    .file-dragging #quick-add-bar::after {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      border: 2px dashed rgba(255, 77, 77, 0.4);
+      background: rgba(255, 77, 77, 0.05);
+      pointer-events: none; z-index: 400;
+      animation: pulse-drop-hint 2s infinite ease-in-out;
+      margin: 5px; border-radius: 8px;
+    }
+    #quick-add-bar.file-drag-over::after {
+      border-color: var(--danger-color);
+      background: rgba(255, 77, 77, 0.15);
+      opacity: 1 !important;
+      animation: none;
+      border-width: 2px;
+    }
+
+    @keyframes pulse-drop-hint {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+  </style>
+</head>
+<body onclick="handleGlobalClick(event)">
+  <div id="mouse-toast"></div>
+  <datalist id="tag-datalist"></datalist>
+  <datalist id="ws-suggestions-datalist"></datalist>
+
+  <div id="context-menu" class="context-menu">
+    <div class="context-menu-item" id="cm-copy"><span class="material-symbols-outlined" style="font-size:1.1rem;">content_copy</span> クリップボードにコピー</div>
+    <div class="context-menu-item" id="cm-clone"><span class="material-symbols-outlined" style="font-size:1.1rem;">content_copy</span> 複製</div>
+    <div class="context-menu-item" id="cm-change-tag"><span class="material-symbols-outlined" style="font-size:1.1rem;">edit_attributes</span> タグ変更</div>
+    <div class="context-menu-item" id="cm-add-sep"><span class="material-symbols-outlined" style="font-size:1.1rem;">add_circle</span> |（区切り）の追加</div>
+    <div class="context-menu-item" id="cm-cleanup-rand"><span class="material-symbols-outlined" style="font-size:1.1rem;">mop</span> |（区切り）を整理</div>
+    <div class="context-menu-item" id="cm-add-to-lib"><span class="material-symbols-outlined" style="font-size:1.1rem;">library_add</span> 結合して追加</div>
+    <div class="context-menu-item" id="cm-add-to-lib-indiv"><span class="material-symbols-outlined" style="font-size:1.1rem;">library_add_check</span> 個別に追加</div>
+    <div class="context-menu-item" id="cm-delete-thumb"><span class="material-symbols-outlined" style="font-size:1.1rem;">no_photography</span> サムネイル削除</div>
+    <div class="context-menu-item text-danger" id="cm-delete"><span class="material-symbols-outlined" style="font-size:1.1rem;">delete</span> 削除</div>
+  </div>
+
+  <div id="shortcut-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header"><span class="material-symbols-outlined">keyboard</span> キーボードショートカット</div>
+      <div class="shortcut-list">
+        <div class="shortcut-item"><span>元に戻す / やり直し</span><span class="shortcut-key">Ctrl+Z / Y</span></div>
+        <div class="shortcut-item"><span>編集モード切替</span><span class="shortcut-key">Ctrl + E</span></div>
+        <div class="shortcut-item"><span>AI翻訳 / Google翻訳実行</span><span class="shortcut-key">Ctrl + Enter</span></div>
+        <div class="shortcut-item"><span>選択項目の英語をコピー</span><span class="shortcut-key">Ctrl + C</span></div>
+        <div class="shortcut-item"><span>クイック追加 (次へ / 確定)</span><span class="shortcut-key">Enter</span></div>
+        <div class="shortcut-item"><span>チップの強調 (強 / 弱)</span><span class="shortcut-key">Ctrl + ↑ / ↓</span></div>
+        <div class="shortcut-item"><span>範囲選択</span><span class="shortcut-key">Shift + Click</span></div>
+        <div class="shortcut-item"><span>複数選択</span><span class="shortcut-key">Ctrl + Click</span></div>
+        <div class="shortcut-item"><span>検索フォーカス</span><span class="shortcut-key">/</span></div>
+        <div class="shortcut-item"><span>チップを貼り付け</span><span class="shortcut-key">Ctrl + V</span></div>
+        <div class="shortcut-item"><span>選択解除</span><span class="shortcut-key">Esc</span></div>
+        <div class="shortcut-item"><span>削除 (チップ)</span><span class="shortcut-key">Del / Backspace</span></div>
+      </div>
+      <div style="margin-top: 15px; text-align: right;"><button class="btn" onclick="$('shortcut-modal').style.display='none'">閉じる</button></div>
+    </div>
+  </div>
+
+  <div id="image-modal" class="modal-overlay" onclick="this.style.display='none'" style="cursor: zoom-out;">
+    <div style="display:flex; flex-direction:row; align-items:stretch; width: 95%; max-width: 1600px; height: 90vh; gap: 20px; background: var(--panel-bg); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); cursor: default; box-shadow: 0 10px 30px rgba(0,0,0,0.3);" onclick="event.stopPropagation()">
+      <div style="flex: 1; display: flex; align-items: center; justify-content: center; min-width: 0; background: var(--bg-color); border-radius: 4px;">
+        <img id="image-modal-img" style="max-width: 100%; max-height: 100%; object-fit: contain; box-shadow: 0 0 20px rgba(0,0,0,0.5); border: 1px solid var(--accent-color); border-radius: 4px;" draggable="false">
+      </div>
+      <div id="image-modal-meta" style="width: 480px; flex-shrink: 0; overflow-y:auto; background:var(--bg-color); color:var(--text-color); padding:20px; font-family:'JetBrains Mono', monospace; font-size:0.75rem; border:1px solid var(--border-color); border-radius:4px; white-space:pre-wrap; cursor: text; user-select: text; display: none;"></div>
+    </div>
+  </div>
+
+  <div id="tag-manager-modal" class="modal-overlay">
+    <div class="modal-content" style="width: 500px;">
+      <div class="modal-header"><span class="material-symbols-outlined">style</span> タグの管理</div>
+      <div style="margin-bottom: 15px;">
+        <div class="input-group">
+          <input type="text" id="tm-new-tag-input" class="search-input" placeholder="新しいタグを追加..." list="tag-datalist" style="border:none; background:transparent; flex:1;">
+          <button class="btn btn-sm" onclick="handleTmAddTag()" style="border:none; background:var(--accent-color); color:white; border-radius:0 4px 4px 0; padding:0 15px; font-weight:700;">追加</button>
+        </div>
+      </div>
+      <div id="tm-tag-cloud" class="tag-list" style="max-height: 400px; overflow-y: auto; align-content: flex-start; gap: 8px; padding: 2px;"></div>
+      <div style="text-align: right; border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 10px;"><button class="btn" onclick="$('tag-manager-modal').style.display='none'">閉じる</button></div>
+    </div>
+  </div>
+
+  <div id="tag-select-modal" class="modal-overlay">
+    <div class="modal-content" style="width: 450px;">
+      <div class="modal-header"><span class="material-symbols-outlined">local_offer</span> 連動させるタグを選択</div>
+      <div id="tag-select-list" class="tag-list" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px; align-content: flex-start;"></div>
+      <div style="text-align: right; border-top: 1px solid var(--border-color); padding-top: 12px;"><button class="btn" onclick="$('tag-select-modal').style.display='none'">キャンセル</button></div>
+    </div>
+  </div>
+
+  <div id="ws-presets-modal" class="modal-overlay">
+    <div class="modal-content" style="width: 500px;">
+      <div class="modal-header"><span class="material-symbols-outlined">bookmarks</span> ワークスペース・プリセット</div>
+      <div style="margin-bottom: 15px;">
+        <div class="input-group">
+          <input type="text" id="ws-preset-name-input" class="search-input" placeholder="現在の構成をプリセット名で保存..." style="border:none; background:transparent; flex:1;">
+          <button class="btn btn-sm" onclick="saveCurrentAsWsPreset()" style="border:none; background:var(--accent-color); color:white; border-radius:0 4px 4px 0; padding:0 15px; font-weight:700;">保存</button>
+        </div>
+      </div>
+      <div id="ws-presets-list" style="max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 2px;">
+      </div>
+      <div style="text-align: right; border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 10px;"><button class="btn" onclick="$('ws-presets-modal').style.display='none'">閉じる</button></div>
+    </div>
+  </div>
+
+  <div class="app-container" id="app">
+    <div class="activity-bar">
+      <div class="activity-btn active" id="act-filters" onclick="switchTab('filters')" title="Filters"><span class="material-symbols-outlined">filter_list</span></div>
+      <div class="activity-btn" id="act-history" onclick="switchTab('history')" title="History"><span class="material-symbols-outlined">history</span></div>
+      <div class="activity-btn" id="act-ai" onclick="switchTab('ai')" title="AI Translation"><span class="material-symbols-outlined">smart_toy</span></div>
+      <div class="activity-btn" id="act-settings" onclick="switchTab('settings')" title="Settings"><span class="material-symbols-outlined">settings</span></div>
+      <div class="activity-btn" id="btn-theme-toggle" onclick="toggleTheme()" title="テーマ切替"><span class="material-symbols-outlined" id="theme-icon">dark_mode</span></div>
+      <div class="activity-btn" style="margin-top:auto;" onclick="$('shortcut-modal').style.display='flex'" title="Shortcuts"><span class="material-symbols-outlined">keyboard</span></div>
+    </div>
+    
+    <div id="sidebar">
+      <div class="sidebar-header">
+        <span id="sidebar-header-title"><span class="material-symbols-outlined mr-6">filter_alt</span>index</span>
+        <button id="btn-reset-filters" class="btn-icon-sm" onclick="resetAllFilters()" title="リセット"><span class="material-symbols-outlined">filter_alt_off</span></button>
+      </div>
+      
+      <div id="tab-filters" class="tab-content active" style="display:flex;">
+        <div class="search-box" id="search-box-area">
+          <div class="input-group">
+            <input type="text" id="searchInput" class="search-input" style="border:none; background:transparent; flex:1;" placeholder="検索" oninput="handleSearch(this.value)" autocomplete="off">
+            <span class="material-symbols-outlined" style="font-size:1.1rem; color:var(--text-dim); display:flex; align-items:center; padding-right:8px; cursor:pointer; user-select:none;" onclick="$('searchInput').value=''; handleSearch('');" title="クリア">close</span>
+          </div>
+        </div>
+        <div class="filter-section" id="filter-section-rating">
+          <div class="filter-title">
+            <span><span class="material-symbols-outlined mr-6">star</span>Rating</span>
+            <div style="display:flex; align-items:center;">
+              <div class="toggle-group">
+                <button class="toggle-item" id="op-ge" onclick="setFilterStarOp('>=')">≥</button>
+                <button class="toggle-item" id="op-eq" onclick="setFilterStarOp('===')">=</button>
+                <button class="toggle-item" id="op-le" onclick="setFilterStarOp('<=')">≤</button>
+              </div>
+              <button class="btn-icon-sm" onclick="setFilterStar(0)" title="解除"><span class="material-symbols-outlined">restart_alt</span></button>
+            </div>
+          </div>
+          <div id="filter-stars" class="star-rating">
+            <span class="material-symbols-outlined" onclick="setFilterStar(1)">star</span>
+            <span class="material-symbols-outlined" onclick="setFilterStar(2)">star</span>
+            <span class="material-symbols-outlined" onclick="setFilterStar(3)">star</span>
+            <span class="material-symbols-outlined" onclick="setFilterStar(4)">star</span>
+            <span class="material-symbols-outlined" onclick="setFilterStar(5)">star</span>
+          </div>
+        </div>
+        <div class="filter-section" id="filter-section-tags" style="flex-grow:1; display:flex; flex-direction:column; border-bottom:none;">
+          <div class="filter-title">
+            <span><span class="material-symbols-outlined mr-6">local_offer</span>Tags</span>
+            <div style="display:flex; align-items:center;">
+              <div class="toggle-group">
+                <button class="toggle-item" id="logic-and" onclick="setFilterTagLogic('AND')">AND</button>
+                <button class="toggle-item" id="logic-or" onclick="setFilterTagLogic('OR')">OR</button>
+              </div>
+              <button class="btn-icon-sm" onclick="clearTagFilter()" title="解除"><span class="material-symbols-outlined">restart_alt</span></button>
+            </div>
+          </div>
+          <div style="margin-bottom: 10px;">
+            <div class="input-group" style="height: 28px; background: rgba(0,0,0,0.1);">
+              <input type="text" id="tagSearchInput" class="search-input" placeholder="タグを絞り込む..." oninput="handleTagSearch(this.value)" style="font-size: 0.75rem; border: none; background: transparent; padding: 4px 8px;">
+              <span class="material-symbols-outlined" style="font-size: 1.1rem; color: var(--text-dim); display: flex; align-items: center; padding-right: 6px; cursor: pointer; user-select: none;" onclick="$('tagSearchInput').value=''; handleTagSearch('');">close</span>
+            </div>
+          </div>
+          <div id="filter-tags" class="tag-list"></div>
+        </div>
+      </div>
+      
+      <div id="tab-ai" class="tab-content" style="padding:15px; gap:10px;">
+        <div class="filter-section" style="border-bottom:1px dashed var(--border-color); padding:0 0 15px 0; margin-bottom:5px;">
+          <div class="filter-title"><span><span class="material-symbols-outlined mr-6">smart_toy</span>Gemini API 設定</span></div>
+          <div class="detail-group" style="margin-bottom:10px;">
+            <label class="detail-label">API Key</label>
+            <div style="position:relative; display:flex; align-items:center;">
+              <input type="password" id="setting-gemini-apikey" class="detail-input" style="width:100%; padding-right:35px;" placeholder="APIキーを入力してください" onchange="updateGeminiSettings()">
+              <button class="btn-icon-sm" onclick="toggleApiKeyVisibility()" style="position:absolute; right:5px; color:var(--text-dim); border:none; background:none;"><span id="apikey-visibility-icon" class="material-symbols-outlined" style="font-size:1.2rem;">visibility_off</span></button>
+            </div>
+          </div>
+          <div class="detail-group" style="margin-bottom:10px;">
+            <label class="detail-label">モデル ID (Model ID)</label>
+            <div style="display:flex; gap:5px;">
+              <select id="setting-gemini-model" class="sort-select" style="flex:1; min-width:0;" onchange="updateGeminiSettings()"></select>
+              <button class="btn btn-sm" onclick="fetchGeminiModels(event)" title="モデル一覧を更新" id="btn-refresh-models" style="flex-shrink:0;"><span class="material-symbols-outlined" style="font-size:1.2rem;">refresh</span></button>
+            </div>
+          </div>
+          <div class="detail-group" style="margin-bottom:10px;">
+            <label class="detail-label">AI画像解析プロンプト (Vision Prompt)</label>
+            <div style="position:relative; display:flex; align-items:flex-start;">
+              <textarea id="setting-gemini-vision-prompt" class="detail-input detail-textarea" style="width:100%; min-height:80px; padding-right:35px;" placeholder="画像解析の指示を入力してください..." onchange="updateGeminiSettings()"></textarea>
+              <button class="btn-icon-sm" onclick="resetGeminiVisionPrompt()" title="デフォルトに戻す" style="position:absolute; right:5px; top:5px; color:var(--text-dim); border:none; background:none;"><span class="material-symbols-outlined" style="font-size:1.2rem;">restart_alt</span></button>
+            </div>
+          </div>
+          <div class="detail-group" style="margin-bottom:10px;">
+            <label class="detail-label">カスタム命令 (System Prompt)</label>
+            <div style="position:relative; display:flex; align-items:flex-start;">
+              <textarea id="setting-gemini-prompt" class="detail-input detail-textarea" style="width:100%; min-height:80px; padding-right:35px;" placeholder="翻訳の指示を入力してください..." onchange="updateGeminiSettings()"></textarea>
+              <button class="btn-icon-sm" onclick="resetGeminiPrompt()" title="デフォルトに戻す" style="position:absolute; right:5px; top:5px; color:var(--text-dim); border:none; background:none;"><span class="material-symbols-outlined" style="font-size:1.2rem;">restart_alt</span></button>
+            </div>
+          </div>
+          <div style="font-size:0.7rem; color:var(--text-dim); margin-top:4px;">※APIキーはブラウザのIndexedDBにのみ保存され、外部サーバーへ送信されることはありません（Gemini APIへの直接通信を除く）。設定をリセットするかブラウザデータを削除すると消去されます。</div>
+        </div>
+      </div>
+
+      <div id="tab-history" class="tab-content" style="padding:15px; gap:10px; overflow-y:auto;">
+        <div class="filter-title">
+          <span><span class="material-symbols-outlined mr-6">history</span>出力履歴</span>
+          <button class="btn-icon-sm" onclick="clearAllHistory()" title="履歴をクリア"><span class="material-symbols-outlined">delete_sweep</span></button>
+        </div>
+        <div style="display:flex; gap:4px; align-items:center; background:var(--bg-color); padding:6px; border-radius:4px; border:1px solid var(--border-color); margin-bottom:5px;">
+          <span style="font-size:0.7rem; color:var(--text-dim); white-space:nowrap; margin-right:4px;">絞り込み:</span>
+          <div class="toggle-group" style="flex:1;">
+            <button class="toggle-item history-toggle-item" id="hf-all" style="flex:1; padding:4px 0; font-size:0.7rem;" onclick="setHistoryFilter('all')">すべて</button>
+            <button class="toggle-item history-toggle-item" id="hf-save" style="flex:1; padding:4px 0; font-size:0.7rem;" onclick="setHistoryFilter('保存')">保存</button>
+            <button class="toggle-item history-toggle-item" id="hf-lib" style="flex:1; padding:4px 0; font-size:0.7rem;" onclick="setHistoryFilter('ライブラリ追加')">追加</button>
+            <button class="toggle-item history-toggle-item" id="hf-copy" style="flex:1; padding:4px 0; font-size:0.7rem;" onclick="setHistoryFilter('全体コピー')">コピー</button>
+          </div>
+        </div>
+        <div id="history-list" style="display:flex; flex-direction:column; gap:10px;"></div>
+      </div>
+
+      <div id="tab-settings" class="tab-content" style="padding:15px; gap:10px;">
+        <div class="filter-title"><span><span class="material-symbols-outlined mr-6">settings</span>一般設定</span></div>
+        <button onclick="exportJSON()" class="btn" style="margin-bottom:8px;"><span class="material-symbols-outlined mr-6">upload</span>JSON エクスポート</button>
+        <button onclick="$('importInput').click()" class="btn"><span class="material-symbols-outlined mr-6">download</span>JSON インポート</button>
+
+        <div class="filter-section" style="border-top: 1px dashed var(--border-color); margin-top: 10px; padding-top: 15px;">
+          <div class="filter-title"><span><span class="material-symbols-outlined mr-6">database</span>統計とストレージ</span></div>
+          <div style="font-size: 0.8rem; color: var(--text-dim); line-height: 1.8;">
+            <div>登録アイテム数: <span id="stat-total-items" style="color: var(--text-color); font-weight: 700;">-</span></div>
+            <div>画像登録済み: <span id="stat-image-items" style="color: var(--text-color); font-weight: 700;">-</span></div>
+            <div style="margin-top: 8px;">ストレージ使用量: <span id="storage-used" style="color: var(--accent-color); font-weight: 700;">-</span> / <span id="storage-quota">-</span></div>
+            <div style="margin-top: 4px; height: 4px; background: var(--border-color); border-radius: 2px; overflow: hidden;">
+              <div id="storage-bar" style="height: 100%; background: var(--accent-color); width: 0%; transition: width 0.5s ease;"></div>
+            </div>
+          </div>
+        </div>
+        <input type="file" id="importInput" accept=".json" style="display:none;" onchange="importJSON(this)">
+      </div>
+    </div>
+    
+    <div id="resizer-left" class="resizer-v"></div>
+    
+    <div id="main-content">
+      <div class="main-header">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="display:flex; align-items:center;"><span class="material-symbols-outlined mr-6">list</span>PROMPT LIBRARY</div>
+          <span id="item-count-badge" style="font-size:.7rem; color:var(--text-dim); margin-left: 20px;"></span>
+          <div style="display:flex; gap:4px; border-left:1px solid var(--border-color); padding-left:12px;">
+            <button id="btn-undo" class="btn-icon-sm" onclick="undo()" disabled title="元に戻す (Ctrl+Z)"><span class="material-symbols-outlined">undo</span></button>
+            <button id="btn-redo" class="btn-icon-sm" onclick="redo()" disabled title="やり直し (Ctrl+Y)"><span class="material-symbols-outlined">redo</span></button>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:16px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:.7rem; color:var(--text-dim);">Sort:</span>
+            <select id="sort-select" class="sort-select" onchange="setSort(this.value)">
+              <option value="manual">カスタム</option>
+              <option value="createdAt">作成日時</option>
+              <option value="updatedAt">更新日時</option>
+              <option value="star">評価</option>
+              <option value="en">名前 (英)</option>
+              <option value="ja">名前 (日)</option>
+              <option value="tags">タグ</option>
+              <option value="len">プロンプト長</option>
+            </select>
+            <button id="sort-order-btn" class="btn-icon-sm" onclick="toggleSortOrder()" style="display:none;"><span id="sort-order-icon" class="material-symbols-outlined">south</span></button>
+          </div>
+          <button id="btn-toggle-edit" class="btn-toggle-edit" onclick="toggleEditMode()" title="編集モードの切替" style="display:none;">
+            <span class="material-symbols-outlined" style="font-size:1.1rem;">visibility</span> VIEWING
+          </button>
+        </div>
+      </div>
+      
+      <div id="dashboard-area">
+        <table class="prompt-table">
+          <colgroup><col style="width:32px;"><col style="width:100px;"><col style="width:50px;"><col><col style="width:32px;"></colgroup>
+          <tbody id="prompt-list-body"></tbody>
+        </table>
+      </div>
+      
+      <div id="quick-add-bar">
+        <div id="qa-tag-info" style="display:flex; align-items:center; gap:8px; margin-bottom:8px; padding:0 4px;">
+          <span class="material-symbols-outlined" style="font-size:1.2rem; color:var(--text-dim);">local_offer</span>
+          <span id="qa-sync-icon" class="material-symbols-outlined" style="font-size:1.2rem; cursor:pointer; transition:.2s;" onclick="toggleQaOverride()"></span>
+          <div id="qa-active-tags" class="item-tags" style="margin:0; gap:4px; flex-wrap:wrap; flex:1;"></div>
+        </div>
+        <div class="qa-inputs" id="qa-inputs-row">
+          <div id="qa-thumb-preview" class="qa-thumb-preview-container">
+            <img id="qa-thumb-img" src="">
+            <span class="material-symbols-outlined qa-thumb-remove" onclick="clearPendingThumb()">close</span>
+          </div>
+          <div class="qa-wrapper" style="width:35%;">
+            <textarea id="qa-ja" placeholder="日本語 (Ctrl+Enterで翻訳)" onkeydown="handleQaJaKey(event)" autocomplete="off"></textarea>
+            <button class="btn-icon-sm" style="color:var(--accent-color); flex-shrink:0; margin-right:4px;" onclick="translateQuickAdd()" title="Geminiで翻訳" id="btn-qa-translate"><span class="material-symbols-outlined">smart_toy</span></button>
+          </div>
+          <div class="qa-wrapper" style="flex:1;">
+            <textarea id="qa-en" placeholder="English (Ctrl+Enterで翻訳 / Enterで確定)" onkeydown="handleQaEnKey(event)" autocomplete="off"></textarea>
+            <button class="btn-icon-sm" style="color:var(--text-dim); flex-shrink:0; margin-right:4px;" onclick="openGoogleTranslate()" title="Google翻訳で開く" id="btn-google-translate"><span class="material-symbols-outlined">g_translate</span></button>
+          </div>
+          <button id="btn-qa-send" class="qa-btn" onclick="quickAdd()"><span class="material-symbols-outlined">send</span></button>
+        </div>
+      </div>
+    </div>
+    
+    <div id="resizer-right" class="resizer-v"></div>
+    
+    <div id="right-sidebar">
+      <div class="ws-header"><span><span class="material-symbols-outlined mr-6">image</span>Preview</span></div>
+      <div id="detail-area" class="detail-panel"></div>
+      
+      <div id="resizer-ws" class="resizer-h"></div>
+      
+      <div class="ws-header" style="border-top:none;">
+        <span><span class="material-symbols-outlined mr-6">edit_note</span>Text</span>
+      </div>
+      <div class="ws-body">
+        <div class="ws-panel ws-panel-grow" style="height:100%;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <label class="ws-label"><span class="ws-hint">クリック選択 / Ctrl複数</span></label>
+            <button class="btn btn-sm" onclick="addLane()" title="レーンを追加"><span class="material-symbols-outlined" style="font-size:1rem; margin-right:4px;">add</span>レーン追加</button>
+          </div>
+          <div id="ws-lanes-container"></div>
+        </div>
+        <div class="ws-panel ws-panel-shrink">
+          <div class="btn-row">
+            <button class="btn flex-1" onclick="addSpecialChip('newline', event)" title="改行" style="color:var(--newline-color);"><span class="material-symbols-outlined mr-6">keyboard_return</span>改行</button>
+            <button class="btn flex-1" onclick="addSpecialChip('break', event)" title="BREAK句" style="color:var(--danger-color);">BREAK</button>
+            <button class="btn flex-1" onclick="addRandomChip(event)" title="ランダムコンテナを追加" style="color:var(--rand-color);">{RAND}</button>
+            <button class="btn flex-1" onclick="addSeparatorToSelectedRand(event)" title="選択中のRANDグループの末尾に「|」を追加します" style="color:var(--rand-color);">|（区切り）</button>
+            <button class="btn flex-1" onclick="addDynamicChoiceChip(event)" title="タグ連動チップを追加" style="color:var(--dynamic-color);">{TAG-SEL}</button>
+          </div>
+          <div class="btn-row">
+            <button onclick="showWsPresetsModal()" class="btn flex-1" title="現在のワークスペース構成を保存・読込"><span class="material-symbols-outlined mr-6">bookmarks</span>プリセット</button>
+            <button onclick="addTerminalToLibrary()" class="btn flex-1" title="現在の構成を新しいアイテムとして保存"><span class="material-symbols-outlined mr-6">library_add</span>ライブラリ追加</button>
+            <button onclick="copyFullPrompt(event)" class="btn flex-1"><span class="material-symbols-outlined mr-6">content_copy</span>全体コピー</button>
+            <button onclick="pasteFromClipboard(event)" class="btn flex-1"><span class="material-symbols-outlined mr-6">content_paste</span>貼り付け</button>
+            <button onclick="clearOutput()" class="btn text-danger" style="flex:0.6;" title="ワークスペースをクリア"><span class="material-symbols-outlined">delete_sweep</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* Constants & Utilities */
+const DB_KEY = 'PROMPT_APP_FLAT_ITEMS', CHIPS_KEY = 'PROMPT_APP_CHIPS', GEMINI_KEY = 'PROMPT_APP_GEMINI', HISTORY_KEY = 'PROMPT_APP_HISTORY', LAYOUT_KEY = 'PROMPT_APP_LAYOUT', WS_PRESETS_KEY = 'PROMPT_APP_WS_PRESETS';
+const THUMB_CONFIG = { MAX_SIZE: 800, QUALITY: 0.8 }, TAG_MISSING = "未入力", TAG_UNCLASS = "未分類";
+
+const $ = id => document.getElementById(id);
+const $$ = sel => document.querySelectorAll(sel);
+const createEl = (tag, cls = '', html = '') => { const e = document.createElement(tag); if (cls) e.className = cls; if (html) e.innerHTML = html; return e; };
+const ensureComma = s => (s && !s.endsWith(',') ? s + ',' : s);
+const toggleDisplay = (idOrIds, isVisible) => (Array.isArray(idOrIds) ? idOrIds : [idOrIds]).forEach(id => { const el = $(id); if (el) el.style.display = isVisible ? 'flex' : 'none'; });
+const escapeHTML = s => !s ? '' : s.replace(/[&<>'"]/g, t => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[t]));
+
+/** 重複排除用の共通関数: ComfyUIノードからテキストを抽出 */
+const extractTextsFromComfyNodes = (pObj, titles) => {
+  const texts = [];
+  for (const pid in pObj) {
+    const n = pObj[pid];
+    let t = n.inputs?.text || n.inputs?.text_g || n.inputs?.text_l || n.inputs?.string || n.inputs?.value || n.inputs?.note || n.inputs?.caption || n.inputs?.textbox || n.inputs?.prompt || n.inputs?.content;
+    if (!t && n.inputs) t = Object.values(n.inputs).find(v => typeof v === 'string');
+    if (!t && Array.isArray(n.widgets_values)) t = n.widgets_values.find(v => typeof v === 'string');
+    if (typeof t === 'string' && t.trim() && (n.class_type || n.type || "").match(/Text|Encode|Prompt|String|Condition|Note|Input|Caption|Label|Custom|Box/i)) {
+      texts.push({ id: pid, title: titles[pid] || n.class_type || n.type, text: t.trim() });
+    }
+  }
+  return texts;
+};
+/** 重複排除用の共通関数: メモアイコンHTMLの生成 */
+const generateNoteIconHtml = (note, searchQuery) => {
+  const hasNote = (note && note.trim());
+  if (!hasNote) return '';
+  const terms = parseQ(searchQuery);
+  const noteMatches = terms.length > 0 && terms.some(t => normStr(note).includes(normStr(t)));
+  return `<span class="material-symbols-outlined note-icon ${noteMatches ? 'hl-note-icon' : ''}" style="font-size:1.1rem; color:var(--accent-color); margin-right:8px; opacity:0.6;">description</span>`;
+};
+const escJS = s => !s ? '' : String(s).replace(/[\\']/g, '\\$&').replace(/\n/g, '\\n');
+const formatDate = ts => ts ? new Intl.DateTimeFormat('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(ts)) : '-';
+
+const unlockInput = el => { el.removeAttribute('readonly'); };
+
+const stopProp = e => { if (e) e.stopPropagation(); };
+const scrollToBottom = (delay = 150) => setTimeout(() => { const d = $('dashboard-area'); if (d) d.scrollTop = d.scrollHeight; }, delay);
+const withMainUpdate = (lbl, fn) => { if (lbl) recordChange(lbl); fn(); refreshMain(); };
+const withChipUpdate = (lbl, fn) => { if (lbl) recordChange(lbl); fn(); renderChips(); save(); };
+
+/* Database (IndexedDB with LocalStorage fallback) */
+const db = new Dexie('PromptLibraryDB');
+db.version(1).stores({ kv: '' });
+const dbOpen = async () => { try { await db.open(); } catch(e) { console.warn("IndexedDB fallback:", e); } };
+const dbGet = async k => { try { const v = await db.kv.get(k); if (v != null) return v; } catch(e) {} try { const ls = localStorage.getItem(k); return ls ? JSON.parse(ls) : undefined; } catch(e) { return undefined; } };
+const dbSet = async (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} try { if (!db.isOpen()) await db.open().catch(() => {}); await db.kv.put(v, k); } catch(e) {} };
+
+/* State Management */
+const DEFAULT_SYSTEM_PROMPT = "以下の日本語を、画像生成AI(Stable Diffusion等)で使われるような英語のカンマ区切りのプロンプトタグ（名詞や短いフレーズの羅列）に翻訳してください。出力は英語のプロンプトのみとし、説明やマークダウンは含めないでください。";
+const DEFAULT_VISION_PROMPT = "この画像の内容（キャラクター、服装、背景など）を分析し、画像生成AIで使用されるような英語のプロンプトタグ（名詞や短いフレーズの羅列）として、カンマ区切りで出力してください。解説や完全な文章は含めず、英語のタグのみを出力してください。";
+let state = { items: [], activeItemId: null, selectedIds: [], outputTokens: [{chips: []}], history: [], wsPresets: [], searchQuery: "", tagSearchQuery: "", pendingWsInput: "", pendingThumb: "", pendingMeta: null, activeLaneIndex: 0, filterTags: [], filterStar: 0, filterStarOp: '===', filterTagLogic: 'OR', filterTagsNot: [], sortType: 'manual', sortOrder: 'desc', selectedChips: [], historyFilter: 'all', editMode: true, theme: 'dark', geminiSync: { apiKey: "", systemPrompt: "", visionPrompt: "", model: "" }, initialized: false, layout: { sidebarWidth: '280px', rightSidebarWidth: '450px', detailHeight: '500px' } };
+let lastSelectedId = null, lastSelectedChipIdx = null, dragContext = { ids: [] }, undoStack = [], redoStack = [];
+const getItem = id => state.items.find(x => x.id === id);
+const getTgtLane = () => state.outputTokens[state.activeLaneIndex] || state.outputTokens[0];
+const getTgtChips = () => getTgtLane().chips;
+const getVisibleItems = () => {
+  let dis = [...state.items].filter(checkFilter);
+  if (state.sortType !== 'manual') {
+    const o = state.sortOrder === 'desc' ? -1 : 1;
+    dis.sort((a, b) => {
+      let vA = a[state.sortType], vB = b[state.sortType];
+      if (state.sortType === 'tags') { vA = a.tags.length ? a.tags[0] : ''; vB = b.tags.length ? b.tags[0] : ''; }
+      if (state.sortType === 'len') { vA = (a.en || '').length; vB = (b.en || '').length; }
+      if (typeof vA === 'string') return vA.localeCompare(vB || '', 'ja') * o;
+      return (vA - vB) * o;
+    });
+  }
+  return dis;
+};
+
+/* Global Event Handlers */
+const handleGlobalClick = e => {
+  $('context-menu').style.display = 'none';
+  if (!e.target.closest('.prompt-chip') && !e.target.closest('#context-menu')) clearChipSelection();
+  if (e.target.classList.contains('modal-overlay')) e.target.style.display = 'none';
+};
+const handleQaJaKey = e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); translateQuickAdd(); } else if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('qa-en').focus(); } else navigateQa(e); };
+const handleQaEnKey = e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); openGoogleTranslate(); } else if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); quickAdd(); } else navigateQa(e); };
+
+/* Global Drag & Drop for Files */
+let dragCounter = 0;
+const initGlobalFileDragEvents = () => {
+  window.addEventListener('dragenter', e => {
+    if (e.dataTransfer.types.includes('Files')) {
+      dragCounter++;
+      document.body.classList.add('file-dragging');
+    }
+  });
+  window.addEventListener('dragleave', e => {
+    if (e.dataTransfer.types.includes('Files')) {
+      dragCounter--;
+      if (dragCounter <= 0) {
+        dragCounter = 0;
+        document.body.classList.remove('file-dragging');
+      }
+    }
+  });
+  window.addEventListener('drop', e => { dragCounter = 0; document.body.classList.remove('file-dragging'); });
+};
+
+const initWorkspaceFileDrop = () => {
+  const ws = document.querySelector('.ws-body');
+  if (!ws) return;
+  ws.addEventListener('dragover', e => {
+    if (e.dataTransfer.types.includes('Files')) {
+      e.preventDefault();
+      ws.classList.add('file-drag-over');
+    }
+  });
+  ws.addEventListener('dragleave', e => { if (!ws.contains(e.relatedTarget)) ws.classList.remove('file-drag-over'); });
+  ws.addEventListener('drop', e => {
+    if (e.dataTransfer.files?.length || e.dataTransfer.types.includes('Files')) {
+      e.preventDefault();
+      ws.classList.remove('file-drag-over');
+      const file = e.dataTransfer.files[0] || e.dataTransfer.items[0].getAsFile();
+      if (file) handleWorkspaceImageDrop(file);
+    }
+  });
+};
+
+/* Tags & Stars Rendering */
+const sortTags = tags => [...tags].sort((a, b) => (a === TAG_MISSING || a === TAG_UNCLASS) ? -1 : (b === TAG_MISSING || b === TAG_UNCLASS) ? 1 : a.localeCompare(b, 'ja'));
+const generateTagHtml = (t, hasClose = false, itemId = null) => {
+  const isSys = t === TAG_MISSING || t === TAG_UNCLASS, click = itemId ? `onclick="showTagManagerModal('${escJS(itemId)}', event)" style="cursor:pointer;"` : '';
+  const delBtn = hasClose ? `<span class="material-symbols-outlined detail-tag-del" onclick="event.stopPropagation(); detailRemoveTag('${escJS(t)}')" style="${isSys ? 'display:none;' : ''}">close</span>` : '';
+  let cls = hasClose ? 'detail-tag' : 'item-tag';
+  if (t === TAG_MISSING) cls += ' missing-tag';
+  if (t === TAG_UNCLASS) cls += ' uncategorized-tag';
+  return `<div class="${cls}" ${click}>${escapeHTML(t)}${delBtn}</div>`;
+};
+const generateStarHtml = (star, editable = false, id = null) => {
+  const stars = [1, 2, 3, 4, 5].map(i => `<span class="material-symbols-outlined" style="font-size:${editable ? '1rem' : '0.85rem'};color:${i <= star ? 'var(--star-color)' : (editable ? 'var(--text-dim)' : 'var(--border-color)')};font-variation-settings:'FILL' ${i <= star ? 1 : 0};cursor:pointer;" ${editable ? `onclick="setItemProp('${id}','star',${star === i ? 0 : i},'評価')"` : ''}>star</span>`).join('');
+  return `${editable ? '<div class="star-rating" style="gap:0; font-size:1rem;">' : '<div style="display:flex; gap:0; margin-right:8px; align-items:center;">'}${stars}</div>`;
+};
+
+/* UI Utilities (Toast, Modals) */
+const showToast = (txt, e) => {
+  const t = $('mouse-toast');
+  if (!t) return;
+  t.innerText = txt;
+  const x = e?.clientX || (window.innerWidth / 2), y = e?.clientY || 100;
+  t.style.left = x + 'px';
+  t.style.top = y + 'px';
+  t.style.transform = x > window.innerWidth - 180 ? 'translate(calc(-100% - 15px), -100%)' : 'translate(15px, -100%)';
+  t.classList.remove('toast-animate');
+  void t.offsetWidth; // reflowを発生させてアニメーションをリセット
+  t.classList.add('toast-animate');
+  setTimeout(() => t.classList.remove('toast-animate'), 1000);
+};
+const showTagManagerModal = (id, e) => {
+  stopProp(e);
+  // Always allow
+  if (id && !state.selectedIds.includes(id)) { state.selectedIds = [id]; state.activeItemId = id; refreshMain(); }
+  $('tag-manager-modal').style.display = 'flex'; renderTmTagCloud();
+  const inp = $('tm-new-tag-input'); inp.value = ''; inp.focus(); inp.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); handleTmAddTag(); } };
+};
+const renderTmTagCloud = () => {
+  const c = $('tm-tag-cloud'); c.innerHTML = '';
+  [...new Set(state.items.flatMap(i => i.tags))].filter(t => ![TAG_MISSING, TAG_UNCLASS].includes(t)).sort().forEach(tag => {
+    const chip = createEl('div', `tag-chip ${state.selectedIds.every(id => getItem(id)?.tags.includes(tag)) ? 'active' : ''}`, `<span>${escapeHTML(tag)}</span>`);
+    chip.style.padding = "6px 12px"; chip.onclick = () => { detailToggleTag(tag); renderTmTagCloud(); }; c.appendChild(chip);
+  });
+};
+const handleTmAddTag = () => {
+  const v = $('tm-new-tag-input').value.trim(); if (!v) return;
+  withMainUpdate('タグ追加', () => { state.selectedIds.forEach(id => { const i = getItem(id); if (i && !i.tags.includes(v)) { i.tags.push(v); i.tags = i.tags.filter(x => !(x === TAG_UNCLASS && i.tags.length > 1)); i.updatedAt = Date.now(); } }); });
+  $('tm-new-tag-input').value = ''; renderTmTagCloud(); $('tm-new-tag-input').focus();
+};
+
+const showImageFull = (id, e) => {
+  const i = getItem(id); if (!i || !i.thumb) return; stopProp(e);
+  $('image-modal-img').src = i.thumb;
+  const meta = $('image-modal-meta');
+  if (i.meta) {
+    try {
+      let data = typeof i.meta === 'string' ? JSON.parse(i.meta) : i.meta, summaryHtml = '';
+      if (data.prompt) {
+        try {
+          const pObj = typeof data.prompt === 'string' ? JSON.parse(data.prompt) : data.prompt;
+          let titles = {};
+          if (data.workflow) try { const wf = typeof data.workflow === 'string' ? JSON.parse(data.workflow) : data.workflow; if (wf.nodes) wf.nodes.forEach(n => titles[n.id.toString()] = n.title || n.properties?.["Node name for S&R"] || n.type); } catch(err) {}
+          
+          let texts = extractTextsFromComfyNodes(pObj, titles);
+          const promptNodeIds = new Set(texts.map(p => p.id));
+          const seenPrompts = new Set(texts.map(p => p.text));
+          const seen = new Set(); texts = texts.filter(p => !seen.has(`${p.title}:${p.text}`) && seen.add(`${p.title}:${p.text}`));
+
+          let nodeSettingsHtml = '';
+          for (const pid in pObj) {
+            if (promptNodeIds.has(pid)) continue;
+            const n = pObj[pid];
+            const settings = Object.entries(n.inputs || {}).filter(([_, v]) => 
+              !Array.isArray(v) && !seenPrompts.has(String(v))
+            );
+            
+            if (settings.length > 0) {
+              const nodeTitle = titles[pid] || n.class_type || n.type;
+              nodeSettingsHtml += `<div style="margin-top:10px; border-top:1px solid var(--border-color); padding-top:8px;"><div style="font-size:0.65rem; color:var(--text-dim); font-weight:700; text-transform:uppercase; margin-bottom:4px;">${escapeHTML(nodeTitle)}</div><div style="display:grid; grid-template-columns: 1fr; gap:3px 0;">${settings.map(([k, v]) => `<div style="display:flex; align-items:baseline; gap:6px; overflow:hidden;"><div style="font-size:0.55rem; color:var(--accent-color); font-weight:700; text-transform:uppercase; flex-shrink:0;">${escapeHTML(k)}</div><div style="font-size:0.75rem; color:var(--text-color); font-weight:700; word-break:break-all;">${escapeHTML(String(v))}</div></div>`).join('')}</div></div>`;
+            }
+          }
+
+          if (texts.length || nodeSettingsHtml) {
+            summaryHtml = `<div style="margin-bottom:15px;padding:12px;background:var(--active-bg-color);border:1px solid var(--border-color);border-radius:6px;">`;
+            if (texts.length) summaryHtml += `<div>${texts.map(p => `<div style="margin-bottom:12px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><div style="font-size:0.65rem;color:var(--accent-color);font-weight:700;text-transform:uppercase;">${escapeHTML(p.title)}</div><button onclick="copyText('${escapeHTML(escJS(p.text))}',event)" class="btn-icon-sm" style="color:var(--accent-color)"><span class="material-symbols-outlined" style="font-size:0.9rem;">content_copy</span></button></div><div style="font-size:0.8rem;color:var(--text-color);background:var(--bg-color);padding:8px;border-radius:4px;border:1px solid var(--border-color);white-space:pre-wrap;">${escapeHTML(p.text)}</div></div>`).join('')}</div>`;
+            if (nodeSettingsHtml) summaryHtml += nodeSettingsHtml;
+
+            if (data.workflow) {
+              summaryHtml += `<div style="margin-top:10px;"><button onclick="downloadWorkflow('${escJS(id)}',event)" style="width:100%;background:var(--accent-color);border:none;color:#fff;padding:8px;border-radius:4px;font-size:0.75rem;cursor:pointer;font-weight:700;display:flex;align-items:center;justify-content:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:1.1rem;">download</span>Workflow JSONをダウンロード</button></div>`;
+            }
+            summaryHtml += `</div>`;
+          }
+
+          if (i.sourceFile) {
+            summaryHtml += `<div style="margin-top:24px; padding:12px 8px 8px; background:var(--bg-color); border-radius:4px; border:1px solid var(--border-color); font-size:0.65rem; color:var(--text-dim); display:flex; flex-direction:column; gap:4px;"><div style="display:flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:0.9rem;">file_present</span><span style="font-weight:700; color:var(--accent-color);">読み込み元ファイルの情報</span></div><div style="display:flex; justify-content:space-between; align-items:center;"><span>ファイル名:</span><span style="color:var(--text-color); word-break:break-all; margin-left:10px;">${escapeHTML(i.sourceFile.name)}</span></div><div style="display:flex; justify-content:space-between;"><span>ファイルの更新日時:</span><span style="color:var(--text-color);">${formatDate(i.sourceFile.lastModified)}</span></div></div>`;
+          }
+        } catch(err) { console.warn(err); }
+      }
+      meta.innerHTML = summaryHtml + Object.entries(data)
+        .filter(([k]) => k !== 'prompt' && k !== 'workflow')
+        .map(([k, v]) => {
+          const val = (typeof v === 'object' || (typeof v === 'string' && (v.trim().startsWith('{')||v.trim().startsWith('[')))) ? JSON.stringify(v,null,2) : String(v);
+          return `<details open style="margin-bottom:8px;background:var(--glass-bg);border:1px solid var(--border-color);border-radius:4px;"><summary style="padding:6px 10px;background:var(--hover-color);color:var(--accent-color);font-weight:700;font-size:0.7rem;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:0.9rem;">info</span>${escapeHTML(k)}</summary><div style="padding:8px;font-size:0.75rem;color:var(--text-color);white-space:pre-wrap;background:var(--input-bg);">${escapeHTML(String(val))}</div></details>`;
+        }).join('');
+      meta.style.display = 'block';
+    } catch(err) { meta.innerText = i.meta; meta.style.display = 'block'; }
+  } else meta.style.display = 'none';
+  $('image-modal').style.display = 'flex';
+};
+
+const showContextMenu = (e, id) => { 
+  e.preventDefault(); const m = $('context-menu'); m.style.display = 'block';
+  toggleDisplay(['cm-copy', 'cm-clone'], true); toggleDisplay(['cm-add-to-lib', 'cm-add-to-lib-indiv', 'cm-change-tag', 'cm-add-sep', 'cm-cleanup-rand'], false);
+  toggleDisplay('cm-delete-thumb', getTgtIds(id).some(tid => getItem(tid)?.thumb));
+
+  let x = e.clientX, y = e.clientY;
+  if (x + m.offsetWidth > window.innerWidth) x = window.innerWidth - m.offsetWidth - 10;
+  if (y + m.offsetHeight > window.innerHeight) y = window.innerHeight - m.offsetHeight - 10;
+  m.style.left = x + 'px'; m.style.top = y + 'px';
+
+  $('cm-delete-thumb').onclick = () => { 
+    if (confirm("サムネイルを削除しますか？")) {
+      setItemProp(id, 'thumb', '', 'サムネイル削除'); 
+    }
+    m.style.display = 'none'; 
+  };
+  $('cm-copy').onclick = ev => { copySelectedPrompts(id, ev); m.style.display = 'none'; }; 
+  $('cm-clone').onclick = () => { cloneItem(id); m.style.display = 'none'; }; 
+  $('cm-delete').onclick = () => { deleteItem(id); m.style.display = 'none'; }; 
+};
+
+/* Chips Management */
+const getChipByPath = (chips, path) => {
+  const p = path.toString().split('-').map(Number); let cur = chips[p[0]];
+  for (let i = 1; i < p.length; i += 2) { if (!cur?.slots) return null; cur = cur.slots[p[i]]?.[p[i+1]]; }
+  return cur;
+};
+const removeChipsByPaths = (chips, paths) => {
+  paths.filter(p => !paths.some(o => p !== o && p.startsWith(o + '-'))).sort((a, b) => {
+    const pa = a.split('-').map(Number), pb = b.split('-').map(Number);
+    if (pa.length !== pb.length) return pb.length - pa.length;
+    for (let i = 0; i < pa.length; i++) if (pa[i] !== pb[i]) return pb[i] - pa[i];
+    return 0;
+  }).forEach(path => {
+    const p = path.split('-').map(Number);
+    if (p.length === 1) chips.splice(p[0], 1);
+    else { let cur = chips[p[0]]; for (let i = 1; i < p.length - 2; i += 2) cur = cur.slots[p[i]][p[i+1]]; cur.slots[p[p.length - 2]].splice(p[p.length - 1], 1); }
+  });
+};
+
+const showChipContextMenu = (e, idx) => {
+  e.preventDefault(); const m = $('context-menu'); m.style.display = 'block';
+  toggleDisplay(['cm-copy', 'cm-clone', 'cm-delete-thumb', 'cm-change-tag', 'cm-add-sep', 'cm-cleanup-rand'], false);
+  const rootChips = getTgtChips(), itemsToAdd = (state.selectedChips.includes(idx.toString()) ? state.selectedChips : [idx.toString()]).map(id => getChipByPath(rootChips, id)).filter(Boolean);
+  const tgtChip = getChipByPath(rootChips, idx), isRand = tgtChip && ['rand_open', 'rand_sep', 'rand_close'].includes(tgtChip.type);
+
+  if (tgtChip?.type === 'dynamic') {
+    toggleDisplay('cm-change-tag', true);
+    $('cm-change-tag').onclick = () => {
+      const tags = [...new Set(state.items.flatMap(i => i.tags))].sort(); if (!tags.length) return alert("ライブラリにタグが登録されていません。");
+      const c = $('tag-select-list'); c.innerHTML = '';
+      tags.forEach(tag => {
+        const btn = createEl('div', 'tag-chip', `<span>${escapeHTML(tag)}</span>`); btn.style.padding = "6px 12px";
+        btn.onclick = () => { $('tag-select-modal').style.display = 'none'; withChipUpdate('タグ変更', () => { tgtChip.tagName = tag; tgtChip.selectedIndex = -1; }); };
+        c.appendChild(btn);
+      });
+      $('tag-select-modal').style.display = 'flex'; m.style.display = 'none';
+    };
+  }
+
+  if (isRand) {
+    toggleDisplay(['cm-add-sep', 'cm-cleanup-rand'], true);
+    $('cm-add-sep').onclick = () => { addSeparatorToRandIdx(Number(idx)); m.style.display = 'none'; };
+    $('cm-cleanup-rand').onclick = () => { cleanupRandGroup(Number(idx)); m.style.display = 'none'; };
+  }
+
+  toggleDisplay('cm-add-to-lib', itemsToAdd.length > 1); toggleDisplay('cm-add-to-lib-indiv', true);
+  $('cm-add-to-lib-indiv').querySelector('span').nextSibling.textContent = itemsToAdd.length > 1 ? ' 個別に追加' : ' ライブラリに追加';
+
+  let x = e.clientX, y = e.clientY;
+  if (x + m.offsetWidth > window.innerWidth) x = window.innerWidth - m.offsetWidth - 10;
+  if (y + m.offsetHeight > window.innerHeight) y = window.innerHeight - m.offsetHeight - 10;
+  m.style.left = x + 'px'; m.style.top = y + 'px';
+
+  $('cm-add-to-lib').onclick = () => {
+    const text = formatChipsToString(itemsToAdd);
+    if (text) {
+      withMainUpdate('ライブラリに追加', () => { const id = "item-" + Date.now(); const ni = { id, tags: [TAG_UNCLASS], star: 0, ja: "", en: text, note: "Combined from Terminal", createdAt: Date.now(), updatedAt: Date.now() }; updateAutoTags(ni); state.items.push(ni); state.selectedIds = [id]; state.activeItemId = id; });
+      showToast("結合して追加しました"); scrollToBottom();
+    }
+    m.style.display = 'none';
+  };
+
+  $('cm-add-to-lib-indiv').onclick = () => {
+    if (itemsToAdd.length) {
+      withMainUpdate('ライブラリに一括追加', () => { let lastId = ""; itemsToAdd.forEach((c, i) => { lastId = "item-" + (Date.now() + i); const ni = { id: lastId, tags: [TAG_UNCLASS], star: 0, ja: "", en: getChipText(c), note: c.type === 'newline' ? 'Line Break' : c.type === 'break' ? 'BREAK' : c.type === 'random' ? 'Random Container' : "From Terminal", createdAt: Date.now(), updatedAt: Date.now() }; updateAutoTags(ni); state.items.push(ni); }); state.selectedIds = [lastId]; state.activeItemId = lastId; });
+      showToast(`${itemsToAdd.length}件追加しました`); scrollToBottom();
+    }
+    m.style.display = 'none';
+  };
+
+  $('cm-delete').onclick = () => {
+    withChipUpdate('チップ削除', () => { removeChipsByPaths(getTgtChips(), state.selectedChips.includes(idx.toString()) ? [...state.selectedChips] : [idx.toString()]); state.selectedChips = []; });
+    m.style.display = 'none';
+  };
+};
+
+/* Undo / Redo System */
+const recordChange = (label = "操作") => {
+  const d = $('dashboard-area'), snap = JSON.stringify({ items: state.items, chips: state.outputTokens, history: state.history, activeLaneIndex: state.activeLaneIndex });
+  if (undoStack.at(-1)?.snapshot === snap) return;
+  undoStack.push({ snapshot: snap, label, top: d ? d.scrollTop : 0 });
+  if (undoStack.length > 50) undoStack.shift(); redoStack = []; updateUndoRedoUI();
+};
+const doHistory = isUndo => {
+  const d = $('dashboard-area'), src = isUndo ? undoStack : redoStack, dest = isUndo ? redoStack : undoStack;
+  if (!src.length) return;
+  const e = src.pop(); dest.push({ snapshot: JSON.stringify({ items: state.items, chips: state.outputTokens, history: state.history, activeLaneIndex: state.activeLaneIndex }), label: e.label, top: d ? d.scrollTop : 0 });
+  const data = JSON.parse(e.snapshot); state.items = data.items; state.outputTokens = data.chips; state.history = data.history || state.history; state.activeLaneIndex = data.activeLaneIndex || 0;
+  updateUndoRedoUI(); refreshMain(); renderChips(); renderHistory(); if (d) d.scrollTop = e.top;
+};
+const undo = () => doHistory(true);
+const redo = () => doHistory(false);
+const updateUndoRedoUI = () => ['undo', 'redo'].forEach(k => { const b = $(`btn-${k}`); if (b) { b.disabled = (k === 'undo' ? undoStack : redoStack).length === 0; b.style.opacity = b.disabled ? "0.2" : "1"; } });
+
+/* Initialization & Persistence */
+const save = () => { if (!state.initialized) return; dbSet(DB_KEY, state.items); dbSet(CHIPS_KEY, state.outputTokens); dbSet(HISTORY_KEY, state.history); dbSet(LAYOUT_KEY, state.layout); dbSet(GEMINI_KEY, state.geminiSync); dbSet(WS_PRESETS_KEY, state.wsPresets); dbSet('PROMPT_APP_THEME', state.theme); };
+const initData = async () => {
+  const savedItems = await dbGet(DB_KEY);
+  state.items = Array.isArray(savedItems) ? savedItems : [];
+  if (state.items.length === 0) {
+    state.items.push({ id: "item-" + Date.now(), tags: [TAG_UNCLASS], star: 5, ja: "ここに追加した意味を入力", en: "masterpiece", note: "初期プロンプト", createdAt: Date.now(), updatedAt: Date.now() });
+  }
+  state.items.forEach(updateAutoTags);
+  state.outputTokens = await dbGet(CHIPS_KEY) || [{name: "LANE 1", chips: []}]; state.history = await dbGet(HISTORY_KEY) || []; state.wsPresets = await dbGet(WS_PRESETS_KEY) || []; state.activeLaneIndex = 0;
+  state.theme = await dbGet('PROMPT_APP_THEME') || 'dark';
+  applyTheme();
+  const layout = await dbGet(LAYOUT_KEY); if (layout) { state.layout = layout; $('sidebar').style.width = layout.sidebarWidth; $('right-sidebar').style.width = layout.rightSidebarWidth; if ($('detail-area')) $('detail-area').style.height = layout.detailHeight; }
+  else { if ($('detail-area')) $('detail-area').style.height = state.layout.detailHeight; }
+  const gSets = await dbGet(GEMINI_KEY); if (gSets) state.geminiSync = { ...state.geminiSync, ...gSets }; if (!state.geminiSync.systemPrompt) state.geminiSync.systemPrompt = DEFAULT_SYSTEM_PROMPT;
+  if (!state.geminiSync.visionPrompt) state.geminiSync.visionPrompt = DEFAULT_VISION_PROMPT;
+  initSettingsUI(); state.initialized = true;
+};
+const initSettingsUI = () => {
+  if ($('setting-gemini-apikey')) $('setting-gemini-apikey').value = state.geminiSync.apiKey || '';
+  if ($('setting-gemini-model')) { const m = state.geminiSync.model || 'gemini-1.5-flash'; $('setting-gemini-model').innerHTML = `<option value="${m}">${m}</option>`; $('setting-gemini-model').value = m; }
+  if ($('setting-gemini-prompt')) $('setting-gemini-prompt').value = state.geminiSync.systemPrompt;
+  if ($('setting-gemini-vision-prompt')) $('setting-gemini-vision-prompt').value = state.geminiSync.visionPrompt;
+};
+const toggleEditMode = () => {
+  state.editMode = !state.editMode; const btn = $('btn-toggle-edit');
+  if (btn) { btn.classList.toggle('active-mode', state.editMode); btn.innerHTML = state.editMode ? '<span class="material-symbols-outlined" style="font-size:1.1rem; font-variation-settings:\'FILL\' 1">edit_note</span> EDITING' : '<span class="material-symbols-outlined" style="font-size:1.1rem;">visibility</span> VIEWING'; }
+  renderMain();
+};
+const toggleTheme = () => {
+  state.theme = state.theme === 'dark' ? 'light' : 'dark';
+  applyTheme();
+  save();
+};
+const applyTheme = () => {
+  document.documentElement.setAttribute('data-theme', state.theme);
+  $('theme-icon').innerText = state.theme === 'dark' ? 'dark_mode' : 'light_mode';
+};
+const updateGeminiSettings = () => { state.geminiSync.apiKey = $('setting-gemini-apikey').value; state.geminiSync.model = $('setting-gemini-model').value; state.geminiSync.systemPrompt = $('setting-gemini-prompt').value; state.geminiSync.visionPrompt = $('setting-gemini-vision-prompt').value; dbSet(GEMINI_KEY, state.geminiSync); };
+
+/* Tabs Navigation */
+const switchTab = t => {
+  $$('.tab-content').forEach(c => c.style.display = 'none'); $(`tab-${t}`).style.display = 'flex';
+  $$('.activity-btn').forEach(b => b.classList.remove('active')); $(`act-${t}`).classList.add('active');
+  const icons = { filters: 'filter_list', ai: 'smart_toy', history: 'history', settings: 'settings' };
+  $('sidebar-header-title').innerHTML = `<span class="material-symbols-outlined mr-6">${icons[t]}</span>${t === 'filters' ? 'index' : t === 'ai' ? 'ai setting' : t}`;
+  $('btn-reset-filters').style.display = t === 'filters' ? 'flex' : 'none';
+  if (t === 'history') setHistoryFilter(state.historyFilter); if (t === 'settings') updateStorageStats();
+};
+const updateStorageStats = async () => {
+  if ($('stat-total-items')) $('stat-total-items').innerText = `${state.items.length} 件`; if ($('stat-image-items')) $('stat-image-items').innerText = `${state.items.filter(i => i.thumb).length} 件`;
+  if (navigator.storage?.estimate) {
+    const e = await navigator.storage.estimate(), p = ((e.usage / e.quota) * 100).toFixed(1);
+    if ($('storage-used')) $('storage-used').innerText = `${(e.usage / 1048576).toFixed(2)} MB`; if ($('storage-quota')) $('storage-quota').innerText = `${(e.quota / 1048576).toFixed(2)} MB (${p}%)`; if ($('storage-bar')) $('storage-bar').style.width = `${p}%`;
+  }
+};
+
+/* Filtering & Sorting */
+const handleSearch = q => { state.searchQuery = q; if ($('searchInput')) $('searchInput').value = q; refreshMain(); };
+const handleTagSearch = q => { state.tagSearchQuery = q; renderFilters(); };
+const setFilterStarOp = op => { state.filterStarOp = op; renderFilters(); refreshMain(); };
+const setFilterTagLogic = l => { state.filterTagLogic = l; renderFilters(); refreshMain(); };
+const setFilterStar = s => { state.filterStar = (state.filterStar === s) ? 0 : s; if (state.filterStar === 0) state.filterStarOp = '==='; renderFilters(); refreshMain(); };
+const toggleFilterTag = t => { state.filterTagsNot = state.filterTagsNot.filter(x => x !== t); state.filterTags.includes(t) ? state.filterTags = state.filterTags.filter(x => x !== t) : state.filterTags.push(t); renderFilters(); refreshMain(); };
+const toggleFilterTagNot = (t, e) => { stopProp(e); if(e) e.preventDefault(); state.filterTags = state.filterTags.filter(x => x !== t); state.filterTagsNot.includes(t) ? state.filterTagsNot = state.filterTagsNot.filter(x => x !== t) : state.filterTagsNot.push(t); renderFilters(); refreshMain(); };
+const clearTagFilter = () => { state.filterTags = []; state.filterTagsNot = []; state.filterTagLogic = 'OR'; state.tagSearchQuery = ""; if ($('tagSearchInput')) $('tagSearchInput').value = ""; renderFilters(); refreshMain(); };
+const resetAllFilters = () => { Object.assign(state, {searchQuery: "", tagSearchQuery: "", filterStar: 0, filterStarOp: '===', filterTags: [], filterTagsNot: [], filterTagLogic: 'OR', sortType: 'manual', sortOrder: 'desc'}); if ($('searchInput')) $('searchInput').value = ""; if ($('tagSearchInput')) $('tagSearchInput').value = ""; renderFilters(); refreshMain(); };
+
+const renderFilters = () => {
+  $$('#tab-filters .toggle-group .toggle-item').forEach(el => el.classList.remove('active'));
+  const opId = { '>=': 'op-ge', '===': 'op-eq', '<=': 'op-le' }[state.filterStarOp]; if ($(opId)) $(opId).classList.add('active');
+  const logicId = state.filterTagLogic === 'AND' ? 'logic-and' : 'logic-or'; if ($(logicId)) $(logicId).classList.add('active');
+  $$('#filter-stars span').forEach((el, i) => el.classList.toggle('active', i < state.filterStar));
+  const tl = $('filter-tags'); if (!tl) return; tl.innerHTML = ''; const dl = $('tag-datalist'); if (dl) dl.innerHTML = '';
+  
+  const cRes = state.items.filter(checkFilter), bRes = state.items.filter(checkBaseFilter), tagsInRes = new Set(cRes.flatMap(i => i.tags));
+  const allT = [...new Set(state.items.flatMap(i => i.tags))], uTags = allT.filter(t => ![TAG_MISSING, TAG_UNCLASS].includes(t)).sort();
+  let disT = []; if (allT.includes(TAG_MISSING)) disT.push(TAG_MISSING); if (allT.includes(TAG_UNCLASS)) disT.push(TAG_UNCLASS); disT.push(...uTags);
+
+  if (state.tagSearchQuery) { const q = normStr(state.tagSearchQuery); disT = disT.filter(t => normStr(t).includes(q)); }
+
+  // Toggle Active Highlight Classes
+  $('search-box-area').classList.toggle('filter-active-area', state.searchQuery.length > 0);
+  $('filter-section-rating').classList.toggle('filter-active-area', state.filterStar > 0);
+  $('filter-section-tags').classList.toggle('filter-active-area', state.filterTags.length > 0 || state.filterTagsNot.length > 0 || state.tagSearchQuery.length > 0);
+
+  if (disT.length === 0 && state.tagSearchQuery) {
+    tl.innerHTML = `<div style="padding:10px; color:var(--text-dim); font-size:0.75rem; font-style:italic; width:100%; text-align:center;">該当するタグがありません</div>`;
+  } else {
+    disT.forEach(t => {
+      const isM = t === TAG_MISSING, isU = t === TAG_UNCLASS, isSel = state.filterTags.includes(t), isNotSel = state.filterTagsNot.includes(t), isGray = state.filterTagLogic === 'AND' && state.filterTags.length > 0 && !isSel && !isNotSel && !tagsInRes.has(t);
+      const d = createEl('div', `tag-chip ${isSel ? 'active' : ''} ${isNotSel ? 'not-active' : ''} ${isM ? 'missing-tag' : ''} ${isU ? 'uncategorized-tag' : ''} ${isGray ? 'grayed-out' : ''}`, `<span>${hlHTML(t, state.tagSearchQuery)}</span><span class="tag-count">${(state.filterTagLogic === 'AND' ? cRes : bRes).filter(i => i.tags.includes(t)).length}</span>`);
+      d.onclick = () => toggleFilterTag(t); d.oncontextmenu = e => toggleFilterTagNot(t, e); tl.appendChild(d);
+      if (!isM && !isU && dl) dl.innerHTML += `<option value="${escapeHTML(t)}">`;
+    });
+  }
+};
+
+const navigateQa = e => { if (e.key === 'Tab') { e.preventDefault(); if (e.target.id === 'qa-ja') $('qa-en').focus(); else $('qa-ja').focus(); } };
+const setSort = t => { state.sortType = t; $('sort-order-btn').style.display = t === 'manual' ? 'none' : 'flex'; refreshMain(); };
+const toggleSortOrder = () => { state.sortOrder = state.sortOrder === 'desc' ? 'asc' : 'desc'; $('sort-order-icon').innerText = state.sortOrder === 'desc' ? 'south' : 'north'; refreshMain(); };
+
+const normStr = s => s ? s.normalize('NFKC').replace(/[\u3041-\u3096]/g, m => String.fromCharCode(m.charCodeAt(0) + 0x60)).toLowerCase() : "";
+const parseQ = q => q.trim().split(/\s+/).filter(Boolean);
+
+let qaTagOverride = null; // Initial state: linked to filter tags
+const updateQaTagPreview = () => {
+  const c = $('qa-active-tags'), icon = $('qa-sync-icon'); if (!c || !icon) return;
+  const isOv = qaTagOverride !== null, tags = state.filterTags.length > 0 ? state.filterTags : [TAG_UNCLASS];
+  icon.innerText = isOv ? 'link_off' : 'link'; icon.style.color = isOv ? 'var(--text-dim)' : 'var(--accent-color)'; icon.title = isOv ? 'フィルターと同期する' : `同期を解除して「${TAG_UNCLASS}」にする`;
+  c.innerHTML = tags.map(t => `<div class="item-tag" style="cursor:pointer; margin:0; transition:.2s; ${isOv ? 'background:rgba(86,95,137,0.15); border-color:var(--text-dim); color:var(--text-dim); opacity:0.6;' : 'background:var(--accent-color); color:#fff; border-color:var(--accent-color); font-weight:700;'} " onclick="toggleQaOverride()" title="${isOv ? 'クリックで同期' : 'クリックで解除'}">${escapeHTML(t)}</div>`).join('');
+};
+const toggleQaOverride = () => { qaTagOverride = (qaTagOverride === null) ? [TAG_UNCLASS] : null; updateQaTagPreview(); };
+
+const checkBaseFilter = i => {
+  const terms = parseQ(state.searchQuery), tgt = normStr(`${i.ja} ${i.en} ${i.note}`);
+  if (terms.length && !terms.every(t => tgt.includes(normStr(t)))) return false;
+  if (state.filterStar > 0 && !(state.filterStarOp === '>=' ? i.star >= state.filterStar : state.filterStarOp === '===' ? i.star === state.filterStar : i.star <= state.filterStar)) return false;
+  return true;
+};
+const checkFilter = i => checkBaseFilter(i) && (!state.filterTags.length || (state.filterTagLogic === 'AND' ? state.filterTags.every(t => i.tags.includes(t)) : state.filterTags.some(t => i.tags.includes(t)))) && (!state.filterTagsNot.length || !state.filterTagsNot.some(t => i.tags.includes(t)));
+
+const hlHTML = (txt, q) => {
+  if (!q || !txt) return escapeHTML(txt || '');
+  const terms = parseQ(q); if (!terms.length) return escapeHTML(txt);
+  const rx = new RegExp(`(${terms.map(t => normStr(t).split('').map(c => { const x = c.charCodeAt(0); return x >= 0x30a1 && x <= 0x30f6 ? `[${c}${String.fromCharCode(x - 0x60)}]` : c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('')).join('|')})`, 'gi');
+  return txt.split(rx).map((p, i) => i % 2 ? `<mark class="hl-mark">${escapeHTML(p)}</mark>` : escapeHTML(p)).join('');
+};
+
+/* Selection & Edit Handlers */
+const selectItem = (id, e) => {
+  const vis = getVisibleItems();
+  if (e?.shiftKey && lastSelectedId) {
+    const sIdx = vis.findIndex(i => i.id === lastSelectedId);
+    const tIdx = vis.findIndex(i => i.id === id);
+    if (sIdx > -1 && tIdx > -1) { const rIds = vis.slice(Math.min(sIdx, tIdx), Math.max(sIdx, tIdx) + 1).map(i => i.id); if (e?.ctrlKey || e?.metaKey) rIds.forEach(r => { if (!state.selectedIds.includes(r)) state.selectedIds.push(r); }); else state.selectedIds = rIds; }
+  } else if (e?.ctrlKey || e?.metaKey) { const i = state.selectedIds.indexOf(id); if (i >= 0) state.selectedIds.splice(i, 1); else state.selectedIds.push(id); lastSelectedId = id; }
+  else { state.selectedIds = [id]; lastSelectedId = id; }
+  state.activeItemId = id; $$('.prompt-table tr').forEach(r => r.classList.toggle('selected-row', state.selectedIds.includes(r.id.replace('row-', ''))));
+  save(); renderDetail();
+};
+
+const confirmAndMove = (id, k, e) => {
+  const { key, shiftKey } = e;
+  if ((key !== 'Enter' || shiftKey) && key !== 'Tab') return;
+  e.preventDefault(); let next;
+  if (key === 'Tab' && shiftKey) { if (k === 'en') next = $(`grid-${id}-ja`); else if (k === 'note') next = $(`grid-${id}-en`); else { const pt = $(`row-${id}`).previousElementSibling; if (pt) next = pt.querySelector('textarea[id$="-note"]'); } } 
+  else { if (k === 'ja') next = $(`grid-${id}-en`); else if (k === 'en') next = $(`grid-${id}-note`); else { const nt = $(`row-${id}`).nextElementSibling; next = nt ? nt.querySelector('textarea[id$="-ja"]') : $(`grid-${id}-ja`); } }
+  if (next) { if (state.editMode) unlockInput(next); next.focus(); } else e.target.blur();
+};
+const isEditClick = e => e.target.closest('button') || e.target.closest('.star-rating') || e.target.closest('.detail-tag-del') || (e.target.matches('textarea, input') && !e.target.readOnly);
+
+/* Image Handling */
+const getMetadataFromPng = async (f) => {
+  if (!f || f.type !== 'image/png') return null;
+  try {
+    const b = await f.arrayBuffer(), v = new DataView(b);
+    if (v.getUint32(0) !== 0x89504E47) return null;
+    let pos = 8; const meta = {}; const dec = new TextDecoder();
+    while (pos < b.byteLength - 8) {
+      const l = v.getUint32(pos), t = String.fromCharCode(...new Uint8Array(b.slice(pos + 4, pos + 8)));
+      if ((t === 'tEXt' || t === 'iTXt') && l > 0) {
+        const p = dec.decode(new Uint8Array(b.slice(pos + 8, pos + 8 + l))).split('\0');
+        if (p.length >= 2) meta[p[0]] = p[1];
+      }
+      pos += l + 12; if (t === 'IEND') break;
+    }
+    return meta;
+  } catch (e) { return null; }
+};
+
+const handleImageFile = async (f, id) => {
+  if (!f || !f.type.startsWith('image/')) return;
+  const meta = await getMetadataFromPng(f);
+  const r = new FileReader();
+  r.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      const cvs = document.createElement('canvas'), scale = Math.min(THUMB_CONFIG.MAX_SIZE / img.width, THUMB_CONFIG.MAX_SIZE / img.height, 1);
+      cvs.width = img.width * scale; cvs.height = img.height * scale; cvs.getContext('2d').drawImage(img, 0, 0, cvs.width, cvs.height);
+      withMainUpdate(`画像設定: ${getItem(id)?.ja || id}`, () => { 
+        const i = getItem(id); 
+        if (i) { 
+          i.thumb = cvs.toDataURL('image/webp', THUMB_CONFIG.QUALITY); 
+          if (meta) i.meta = JSON.stringify(meta, null, 2); 
+          i.sourceFile = { name: f.name, lastModified: f.lastModified };
+          i.updatedAt = Date.now(); 
+        } 
+      });
+      if (meta) showToast("ComfyUIのメタデータを保存しました");
+    };
+    img.src = ev.target.result;
+  };
+  r.readAsDataURL(f);
+};
+
+const clearPendingThumb = () => {
+  state.pendingThumb = "";
+  state.pendingMeta = null;
+  $('qa-thumb-preview').style.display = 'none';
+  $('qa-inputs-row').classList.remove('has-thumb');
+  $('qa-thumb-img').src = "";
+};
+
+const setPendingThumb = (dataUrl, meta) => {
+  state.pendingThumb = dataUrl;
+  state.pendingMeta = meta;
+  if (dataUrl) {
+    $('qa-thumb-img').src = dataUrl;
+    $('qa-thumb-preview').style.display = 'block';
+    $('qa-inputs-row').classList.add('has-thumb');
+  } else {
+    clearPendingThumb();
+  }
+};
+
+const handleQuickAddImageDrop = async (file) => {
+  const meta = await getMetadataFromPng(file);
+  let extractedText = "";
+  // ComfyUI形式の解析
+  if (meta && meta.prompt) {
+    try {
+      const pObj = JSON.parse(meta.prompt);
+      const workflow = meta.workflow ? JSON.parse(meta.workflow) : null;
+      const titles = {};
+      if (workflow?.nodes) workflow.nodes.forEach(n => titles[n.id.toString()] = n.title || n.type);
+      const texts = extractTextsFromComfyNodes(pObj, titles);
+      if (texts.length > 0) extractedText = texts.map(t => t.text).join(', ');
+    } catch (e) { console.error("ComfyUI parse error", e); }
+  }
+  // A1111形式の解析 (Positive Prompt)
+  else if (meta && meta.parameters) {
+    const parts = meta.parameters.split('\n');
+    if (parts[0]) extractedText = parts[0];
+  }
+
+  // サムネイル用の一時保存処理
+  const r = new FileReader();
+  r.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      const cvs = document.createElement('canvas'), scale = Math.min(THUMB_CONFIG.MAX_SIZE / img.width, THUMB_CONFIG.MAX_SIZE / img.height, 1);
+      cvs.width = img.width * scale; cvs.height = img.height * scale;
+      cvs.getContext('2d').drawImage(img, 0, 0, cvs.width, cvs.height);
+      setPendingThumb(cvs.toDataURL('image/webp', THUMB_CONFIG.QUALITY), meta ? JSON.stringify(meta, null, 2) : null);
+    };
+    img.src = ev.target.result;
+  };
+  r.readAsDataURL(file);
+
+  if (extractedText) {
+    $('qa-en').value = extractedText;
+    showToast("画像とプロンプトをセットしました");
+  } else if (state.geminiSync.apiKey) {
+    // メタデータがない場合はAIによる画像解析を実行
+    describeImageWithAi(file);
+  } else {
+    showToast("プロンプトが見つかりませんでした（AI解析にはAPIキーが必要です）");
+  }
+};
+
+const initQuickAddFileDrop = () => {
+  const qaBar = $('quick-add-bar');
+  if (!qaBar) return;
+  qaBar.addEventListener('dragover', e => {
+    if (e.dataTransfer.types.includes('Files')) {
+      e.preventDefault();
+      qaBar.classList.add('file-drag-over');
+    }
+  });
+  qaBar.addEventListener('dragleave', e => {
+    if (!qaBar.contains(e.relatedTarget)) qaBar.classList.remove('file-drag-over');
+  });
+  qaBar.addEventListener('drop', e => {
+    if (e.dataTransfer.files?.length || e.dataTransfer.types.includes('Files')) {
+      e.preventDefault();
+      qaBar.classList.remove('file-drag-over');
+      const file = e.dataTransfer.files[0] || e.dataTransfer.items[0].getAsFile();
+      if (file) handleQuickAddImageDrop(file);
+    }
+  });
+};
+
+const handleWorkspaceImageDrop = async (f) => {
+  const meta = await getMetadataFromPng(f);
+  if (!meta) return showToast("メタデータが見つかりません");
+  
+  let extracted = []; // Array of { title, text }
+
+  // ComfyUI format
+  if (meta.prompt) {
+    try {
+      const prompt = JSON.parse(meta.prompt);
+      const workflow = meta.workflow ? JSON.parse(meta.workflow) : null;
+      const titles = {};
+      if (workflow?.nodes) workflow.nodes.forEach(n => titles[n.id.toString()] = n.title || n.type);
+      extracted = extractTextsFromComfyNodes(prompt, titles);
+    } catch (e) { console.error("ComfyUI parse error", e); }
+  } 
+  // A1111 format
+  else if (meta.parameters) {
+    const parts = meta.parameters.split('\n');
+    if (parts[0]) extracted.push({ title: "Positive", text: parts[0] });
+    const negMatch = meta.parameters.match(/Negative prompt: (.*)/);
+    if (negMatch && negMatch[1]) extracted.push({ title: "Negative", text: negMatch[1] });
+  }
+
+  if (extracted.length === 0) return showToast("有効なプロンプトを抽出できませんでした");
+
+  withChipUpdate('画像からプロンプトを抽出', () => {
+    // 全く空のレーンしかない場合は上書き、そうでなければ末尾に追加
+    if (state.outputTokens.length === 1 && state.outputTokens[0].chips.length === 0 && !state.outputTokens[0].name) {
+      state.outputTokens = [];
+    }
+    extracted.forEach(item => {
+      state.outputTokens.push({
+        name: item.title,
+        chips: parseTextToChips(item.text)
+      });
+    });
+    state.activeLaneIndex = state.outputTokens.length - 1;
+  });
+  showToast(`${extracted.length}個のレーンを展開しました`);
+};
+
+/* Rendering Main Content */
+const createRow = item => {
+  const isSel = state.selectedIds.includes(item.id), tr = createEl('tr', `${isSel ? 'selected-row' : ''} ${state.sortType !== 'manual' ? 'sorting-active' : ''}`);
+  tr.id = `row-${escapeHTML(item.id)}`;
+  const noteIcon = generateNoteIconHtml(item.note, state.searchQuery);
+
+  tr.innerHTML = `<td class="drag-handle-cell"><span class="material-symbols-outlined">drag_indicator</span></td>
+    <td style="padding:0;width:100px;height:1px;border-right:1px solid rgba(255,255,255,0.05);overflow:hidden;position:relative;"><div class="thumb-strip">${item.thumb?`<img src="${item.thumb}" class="item-thumb" loading="lazy" draggable="false">`:`<span class="material-symbols-outlined" style="opacity:0.1;font-size:1.8rem;">image</span>`}</div></td>
+    <td><div style="display:flex;flex-direction:column;gap:4px;justify-content:center;align-items:center;"><button class="btn-inline-add" style="background:var(--active-bg-color);color:var(--accent-color);" onclick="copyPrompt('${item.id}',event)" title="コピー"><span class="material-symbols-outlined" style="font-size:1.1rem;">content_copy</span></button><button class="btn-inline-add" style="background:var(--active-bg-color);color:var(--accent-color);" onclick="openItemInGoogleTranslate('${escJS(item.id)}',event)" title="Google翻訳で開く"><span class="material-symbols-outlined" style="font-size:1.1rem;">g_translate</span></button><button class="btn-inline-add" onclick="addToTerminal('${item.id}',event)" title="追加"><span class="material-symbols-outlined" style="font-size:1.1rem;">add</span></button></div></td>
+    <td class="prompt-content-cell" title="${item.note && item.note.trim() ? 'MEMO: ' + escapeHTML(item.note) : ''}">
+      <div class="prompt-content-row">
+        ${['ja','en'].map(k => `<div class="textarea-wrapper" style="${k==='ja'?'margin-bottom:4px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 4px;':''}"><div id="bd-${escapeHTML(item.id)}-${escapeHTML(k)}" class="highlight-backdrop">${hlHTML(item[k],state.searchQuery)}</div><textarea id="grid-${escapeHTML(item.id)}-${escapeHTML(k)}" class="grid-textarea" onfocus="selectItem('${escJS(item.id)}', event); recordChange('編集');" onkeydown="confirmAndMove('${escJS(item.id)}','${escJS(k)}',event)" oninput="updateCell('${escJS(item.id)}','${escJS(k)}',this.value);if(state.searchQuery)$('bd-${escJS(item.id)}-${escJS(k)}').innerHTML=hlHTML(this.value,state.searchQuery);">${escapeHTML(item[k])}</textarea></div>`).join('')}
+      </div>
+      <div class="item-tags" style="border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 6px; margin-top: 4px; display:flex; align-items:center;">${generateStarHtml(item.star, true, item.id)}${noteIcon}${sortTags(item.tags).map(t => generateTagHtml(t, true, item.id)).join('')}</div>
+    </td>
+    <td class="drag-handle-cell"><span class="material-symbols-outlined">drag_indicator</span></td>`; // Keep this for drag handle
+  
+  tr.onmousedown = e => {
+    if (isEditClick(e)) return;
+    if (e.target.closest('.drag-handle-cell')) (state.selectedIds.includes(item.id) ? state.selectedIds : [item.id]).forEach(tid => $(`row-${tid}`)?.classList.add('row-active'));
+    $('context-menu').style.display = 'none';
+    if (!e.ctrlKey && !e.metaKey && !e.shiftKey && state.selectedIds.includes(item.id) && state.selectedIds.length > 1) return;
+    selectItem(item.id, e);
+  };
+  tr.onmouseup = tr.onmouseleave = () => $$('.row-active').forEach(el => el.classList.remove('row-active'));
+  tr.onclick = e => { if (!isEditClick(e) && e.detail === 1 && !e.ctrlKey && !e.metaKey && !e.shiftKey && state.selectedIds.includes(item.id) && state.selectedIds.length > 1) selectItem(item.id, e); };
+  tr.oncontextmenu = e => { if (!(e.target.tagName === 'TEXTAREA' && !e.target.hasAttribute('readonly'))) showContextMenu(e, item.id); };
+  tr.draggable = false; tr.querySelectorAll('.drag-handle-cell').forEach(h => h.onmousedown = () => tr.draggable = true);
+  tr.ondragstart = e => { e.dataTransfer.setData('text/plain', ''); if (!state.selectedIds.includes(item.id)) selectItem(item.id); dragContext.ids = [...state.selectedIds]; };
+  tr.ondragend = () => { tr.draggable = false; tr.classList.remove('drag-top', 'drag-bottom'); tr.style.outline = ''; dragContext.ids = []; $$('.row-active').forEach(el => el.classList.remove('row-active')); };
+  tr.ondragover = e => {
+    const isF = e.dataTransfer.types.includes('Files'), isI = dragContext.ids.length > 0;
+    if (isF || isI) {
+      e.preventDefault(); if (isF) { tr.classList.add('drag-over-row'); return; }
+      const c = $('dashboard-area'), r = c.getBoundingClientRect(), rt = tr.getBoundingClientRect();
+      if (e.clientY < r.top + 60) c.scrollTop -= 15; else if (e.clientY > r.bottom - 60) c.scrollTop += 15;
+      tr.classList.toggle('drag-top', e.clientY < rt.top + rt.height / 2); tr.classList.toggle('drag-bottom', e.clientY >= rt.top + rt.height / 2);
+    }
+  };
+  tr.ondragleave = () => tr.classList.remove('drag-top', 'drag-bottom', 'drag-over-row');
+  tr.ondrop = e => {
+    e.preventDefault(); tr.classList.remove('drag-top', 'drag-bottom', 'drag-over-row');
+    if (e.dataTransfer.files?.length || e.dataTransfer.types.includes('Files')) return handleImageFile(e.dataTransfer.files[0] || e.dataTransfer.items[0].getAsFile(), item.id);
+    if (!dragContext.ids.length || dragContext.ids.includes(item.id)) return;
+    withMainUpdate('並び替え', () => {
+      const toMove = [], rem = []; state.items.forEach(i => dragContext.ids.includes(i.id) ? toMove.push(i) : rem.push(i));
+      let tIdx = rem.findIndex(i => i.id === item.id); if (e.clientY >= tr.getBoundingClientRect().top + tr.getBoundingClientRect().height / 2) tIdx++;
+      rem.splice(tIdx === -1 ? rem.length : tIdx, 0, ...toMove); state.items = rem;
+    });
+    dragContext.ids = [];
+  };
+  return tr;
+};
+
+const renderMain = () => {
+  const tb = $('prompt-list-body'), f = document.createDocumentFragment(); tb.innerHTML = '';
+  const dis = getVisibleItems();
+  dis.forEach(i => f.appendChild(createRow(i))); tb.appendChild(f);
+  $('item-count-badge').innerText = `${dis.length} items`; renderDetail();
+};
+const refreshMain = () => { save(); renderMain(); renderFilters(); updateQaTagPreview(); };
+
+/* Data Operations */
+const quickAdd = () => {
+  const j = $('qa-ja').value.trim(), e = $('qa-en').value.trim(); if (!e && !j) return;
+  withMainUpdate('新規追加', () => {
+    const id = "item-" + Date.now(), ni = { id, tags: qaTagOverride !== null ? [...qaTagOverride] : (state.filterTags.length > 0 ? [...state.filterTags] : [TAG_UNCLASS]), star: 0, thumb: state.pendingThumb || "", meta: state.pendingMeta || "", ja: j, en: e, note: "", createdAt: Date.now(), updatedAt: Date.now() };
+    updateAutoTags(ni); state.items.push(ni); state.selectedIds = [id]; state.activeItemId = lastSelectedId = id;
+    $('qa-ja').value = ''; $('qa-en').value = ''; qaTagOverride = null; 
+    clearPendingThumb();
+    updateQaTagPreview();
+  });
+  scrollToBottom(); setTimeout(() => { $('qa-ja')?.focus(); }, 150);
+};
+
+const getTgtIds = id => (state.selectedIds.includes(id) || !id) && state.selectedIds.length ? state.selectedIds : [id];
+
+const deleteItem = id => {
+  const t = getTgtIds(id);
+  if (!confirm(t.length > 1 ? `選択中の ${t.length} 件のアイテムをすべて削除しますか？\n(削除後にアンドゥで戻すことは可能ですが、慎重に実行してください)` : "このアイテムを削除しますか？")) return;
+  withMainUpdate('削除', () => { state.items = state.items.filter(i => !t.includes(i.id)); state.selectedIds = []; state.activeItemId = lastSelectedId = null; });
+};
+
+const cloneItem = id => { 
+  const t = getTgtIds(id);
+  withMainUpdate('複製', () => {
+    const nw = Date.now(), d = new Date(), ts = `_${d.getFullYear().toString().slice(-2)}${(d.getMonth() + 1).toString().padStart(2,'0')}${d.getDate().toString().padStart(2,'0')}${d.getHours().toString().padStart(2,'0')}${d.getMinutes().toString().padStart(2,'0')}`;
+    const nItems = t.map((tid, i) => { const it = getItem(tid); if (!it) return null; const ni = { ...it, id: "item-" + (nw + i), thumb: it.thumb || "", ja: it.ja + ts, createdAt: nw, updatedAt: nw }; updateAutoTags(ni); return ni; }).filter(Boolean);
+    state.items.push(...nItems); state.selectedIds = nItems.map(i => i.id); if (nItems.length) state.activeItemId = nItems.at(-1).id;
+  });
+  scrollToBottom(50);
+};
+
+const updateAutoTags = (item) => {
+  if (!item.tags) item.tags = [];
+  const old = JSON.stringify(item.tags), isM = !item.ja?.trim() || !item.en?.trim();
+  item.tags = item.tags.filter(t => t !== TAG_MISSING && t !== TAG_UNCLASS);
+  if (isM) item.tags.push(TAG_MISSING);
+  if (!item.tags.length && !isM) item.tags.push(TAG_UNCLASS);
+  item.tags = sortTags([...new Set(item.tags)]); return old !== JSON.stringify(item.tags);
+};
+
+const refreshItemTagsUI = id => {
+  const i = getItem(id); if (!i) return; const row = $(`row-${id}`);
+  if (row) {
+    const tc = row.querySelector('.item-tags');
+    if (tc) {
+      const noteIcon = generateNoteIconHtml(i.note, state.searchQuery);
+      tc.innerHTML = `${generateStarHtml(i.star, true, i.id)}${noteIcon}${sortTags(i.tags).map(t => generateTagHtml(t, true, i.id)).join('')}`;
+    }
+    const cell = row.querySelector('.prompt-content-cell');
+    if (cell) cell.title = i.note && i.note.trim() ? 'MEMO: ' + i.note : '';
+  }
+  if (state.activeItemId === id) { const dl = document.querySelector('.detail-tag-list'); if (dl) dl.innerHTML = sortTags(i.tags).map(t => generateTagHtml(t, true, i.id)).join(''); }
+};
+
+const updateCell = (id, k, v) => { const i = getItem(id); if (i) { i[k] = v; i.updatedAt = Date.now(); if (updateAutoTags(i) || k === 'note') refreshItemTagsUI(id); save(); } };
+const setItemProp = (id, k, v, lbl) => {
+  // プロパティ変更時、そのアイテムが未選択なら選択する
+  withMainUpdate(lbl, () => getTgtIds(id).forEach(tid => { const i = getItem(tid); if (i) { i[k] = v; i.updatedAt = Date.now(); } }));
+};
+const detailRemoveTag = t => { if (!state.editMode || !state.selectedIds.length || t === TAG_MISSING || t === TAG_UNCLASS) return; withMainUpdate('タグ削除', () => state.selectedIds.forEach(id => { const i = getItem(id); if (i) { i.tags = i.tags.filter(x => x !== t); if (!i.tags.length) i.tags.push(TAG_UNCLASS); i.updatedAt = Date.now(); } })); };
+const detailToggleTag = t => { if (!state.editMode || !state.selectedIds.length) return; if (state.selectedIds.every(id => getItem(id)?.tags.includes(t))) detailRemoveTag(t); else withMainUpdate('タグ付与', () => state.selectedIds.forEach(id => { const i = getItem(id); if (i && !i.tags.includes(t)) { i.tags.push(t); i.tags = i.tags.filter(x => !(x === TAG_UNCLASS && i.tags.length > 1)); i.updatedAt = Date.now(); } })); };
+
+const renderDetail = () => {
+  const d = $('detail-area'); if (!d) return; const i = getItem(state.activeItemId);
+  if (!i) return d.innerHTML = '<div class="empty-detail">選択してください</div>';
+  d.innerHTML = ` 
+    <div class="thumb-container" style="width:100%;flex:1;min-height:150px;border:none;background:var(--bg-color);cursor:default;" ondragover="event.preventDefault();if(event.dataTransfer.types.includes('Files'))this.classList.add('drag-over-thumb');" ondragleave="this.classList.remove('drag-over-thumb');" ondrop="event.preventDefault();this.classList.remove('drag-over-thumb');if(event.dataTransfer.files?.length)handleImageFile(event.dataTransfer.files[0],'${i.id}');">
+      ${i.thumb?`<img src="${i.thumb}" class="item-thumb" style="object-fit:contain;width:100%;height:100%;cursor:zoom-in;" onclick="showImageFull('${i.id}',event)" draggable="false">`:`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;opacity:0.15;user-select:none;"><span class="material-symbols-outlined" style="font-size:5rem;">image</span><div style="font-size:0.75rem;margin-top:8px;">画像をドロップしてサムネイルを登録</div></div>`}
+    </div>
+    <div class="detail-section">
+      <div class="detail-group">
+        <label class="detail-label">MEMO / NOTE</label>
+        <div class="textarea-wrapper">
+          <div id="bd-${escapeHTML(i.id)}-note" class="highlight-backdrop" style="font-size:0.8rem;">${hlHTML(i.note, state.searchQuery)}</div>
+          <textarea id="grid-${escapeHTML(i.id)}-note" class="grid-textarea grid-note-area" 
+            placeholder="このプロンプトに関するメモを入力..." 
+            onfocus="recordChange('編集')" 
+            oninput="updateCell('${escJS(i.id)}','note',this.value); if(state.searchQuery) $('bd-${escJS(i.id)}-note').innerHTML=hlHTML(this.value,state.searchQuery);">${escapeHTML(i.note||'')}</textarea>
+        </div>
+      </div>
+    </div>`;
+};
+
+/* Workspace / Terminal Functions */
+const addTextAsChips = (text, e) => {
+  if (!text || !text.trim()) return;
+  withChipUpdate('貼り付け', () => {
+    const chips = getTgtChips(); let insertIdx = state.selectedChips.length > 0 ? Math.max(...state.selectedChips.map(Number)) + 1 : chips.length; const addedIdxs = [];
+    parseTextToChips(text).forEach(chip => { chips.splice(insertIdx++, 0, chip); addedIdxs.push((insertIdx - 1).toString()); });
+    state.selectedChips = addedIdxs;
+  });
+  showToast(`${state.selectedChips.length}個のチップを貼り付けました`, e);
+};
+
+const pasteFromClipboard = async (e) => { try { addTextAsChips(await navigator.clipboard.readText(), e); } catch (err) {} };
+
+const addToTerminal = (id, e, forcedArr = null, forcedIdx = null, pathPrefix = "") => {
+  stopProp(e); let count = 0;
+  withChipUpdate('チップ追加', () => {
+    let targetArr = forcedArr || getTgtChips(), insertIdx = forcedIdx !== null ? forcedIdx : (state.selectedChips.length > 0 ? Math.max(...state.selectedChips.map(Number)) + 1 : targetArr.length);
+    const addedIdxs = [];
+    getTgtIds(id).forEach(tid => { const i = getItem(tid); if (!i?.en) return; parseTextToChips(i.en).forEach(chip => { targetArr.splice(insertIdx++, 0, chip); addedIdxs.push(pathPrefix + (insertIdx - 1).toString()); count++; }); });
+    state.selectedChips = addedIdxs;
+  });
+  showToast(`${count}個のチップを追加しました`, e);
+};
+
+const addTerminalToLibrary = () => {
+  let text = "";
+  if (state.selectedChips.length > 0) {
+    // チップが個別に選択されている場合はそのチップのみを対象とする
+    text = formatChipsToString(state.selectedChips.map(path => getChipByPath(getTgtChips(), path)));
+  } else {
+    // 未選択の場合は全レーンの結合テキストを対象とする
+    text = getTerminalString();
+  }
+  if (!text) return showToast("保存する内容がありません");
+  withMainUpdate('ライブラリに追加', () => { const id = "item-" + Date.now(); const ni = { id, tags: [TAG_UNCLASS], star: 0, ja: "", en: text, note: "From Terminal", createdAt: Date.now(), updatedAt: Date.now() }; updateAutoTags(ni); state.items.push(ni); state.selectedIds = [id]; state.activeItemId = id; });
+  showToast("ライブラリに追加しました"); addToHistory("ライブラリ追加"); scrollToBottom();
+};
+
+const copyFullPrompt = (e) => { const txt = getTerminalString(); copyText(txt, e); if (txt) addToHistory("全体コピー"); };
+
+const addDynamicChoiceChip = e => {
+  stopProp(e); const tags = [...new Set(state.items.flatMap(i => i.tags))].sort(); if (!tags.length) return alert("ライブラリにタグが登録されていません。");
+  const c = $('tag-select-list'); c.innerHTML = '';
+  tags.forEach(tag => {
+    const btn = createEl('div', 'tag-chip', `<span>${escapeHTML(tag)}</span>`); btn.style.padding = "6px 12px";
+    btn.onclick = () => { $('tag-select-modal').style.display = 'none'; withChipUpdate('タグ連動チップ追加', () => { const chips = getTgtChips(); const lastIdx = state.selectedChips.length > 0 ? Math.max(...state.selectedChips.map(Number)) : chips.length - 1; chips.splice(lastIdx + 1, 0, { type: 'dynamic', tagName: tag, selectedIndex: -1 }); state.selectedChips = [(lastIdx + 1).toString()]; }); };
+    c.appendChild(btn);
+  });
+  $('tag-select-modal').style.display = 'flex';
+};
+
+const adjustSelectedChipsWeight = (delta) => {
+  if (!state.selectedChips.length) return;
+  const rootChips = getTgtChips(); let changed = false;
+  state.selectedChips.forEach(path => {
+    const chip = getChipByPath(rootChips, path); if (!chip || chip.type !== 'text') return;
+    let baseText = chip.text, weight = 1.0; const match = chip.text.match(/^\((.*):([\d.]+)\)$/); if (match) { baseText = match[1]; weight = parseFloat(match[2]); }
+    const newWeight = Math.round((weight + delta) * 100) / 100; if (newWeight <= 0) return;
+    if (!changed) { recordChange('強度調整'); changed = true; }
+    chip.text = newWeight === 1.0 ? baseText : `(${baseText}:${newWeight.toFixed(2).replace(/\.?0+$/, '')})`;
+  });
+  if (changed) { renderChips(); save(); }
+};
+
+const addSpecialChip = (t, e) => {
+  stopProp(e);
+  withChipUpdate('特殊チップ追加', () => { const chips = getTgtChips(); const insertIdx = state.selectedChips.length > 0 ? Math.max(...state.selectedChips.map(Number)) + 1 : chips.length; chips.splice(insertIdx, 0, t === 'newline' ? { type: 'newline' } : { type: 'break' }); state.selectedChips = [insertIdx.toString()]; });
+};
+
+const splitRandContent = (content) => { const parts = []; let currentPart = '', balance = 0; for (const char of content) { if (char === '{') balance++; else if (char === '}') balance--; else if (char === '|' && balance === 0) { parts.push(currentPart); currentPart = ''; continue; } currentPart += char; } parts.push(currentPart); return parts; };
+
+const parseTextToChips = (text) => {
+  const chips = []; let i = 0;
+  while (i < text.length) {
+    if (text[i] === '{') {
+      let balance = 0, j = i; while (j < text.length) { if (text[j] === '{') balance++; else if (text[j] === '}') balance--; if (balance === 0) break; j++; }
+      if (balance === 0 && j < text.length) { chips.push({ type: 'rand_open', text: '{' }); splitRandContent(text.substring(i + 1, j)).forEach((part, index, arr) => { chips.push(...parseTextToChips(part)); if (index < arr.length - 1) chips.push({ type: 'rand_sep', text: '|' }); }); chips.push({ type: 'rand_close', text: '}' }); i = j + 1; continue; }
+    }
+    const rem = text.substring(i);
+    if (rem.startsWith('BREAK')) { chips.push({ type: 'break' }); i += 'BREAK'.length; }
+    else if (rem.startsWith('\n')) { chips.push({ type: 'newline' }); i += '\n'.length; }
+    else if (rem.startsWith(',')) i++;
+    else { let k = i; while (k < text.length && !['{', '}', '|', '\n', ','].includes(text[k]) && !text.substring(k).startsWith('BREAK')) k++; const seg = text.substring(i, k).trim(); if (seg) chips.push({ type: 'text', text: seg }); i = k; }
+  }
+  return chips;
+};
+
+const addSeparatorToRandIdx = (idx) => {
+  const chips = getTgtChips(), target = chips[idx]; if (!target) return;
+  withChipUpdate('選択肢追加', () => { const insertPos = (target.type === 'rand_open' || target.type === 'rand_sep') ? idx + 1 : idx; chips.splice(insertPos, 0, { type: 'rand_sep', text: '|' }); const scope = findRandScope(chips, insertPos); state.selectedChips = scope ? Array.from({length: scope.end - scope.start + 1}, (_, i) => (scope.start + i).toString()) : [insertPos.toString()]; });
+};
+
+const addSeparatorToSelectedRand = (e) => { stopProp(e); if (!state.selectedChips.length) return showToast("RANDチップを選択してください"); const scope = findRandScope(getTgtChips(), Number(state.selectedChips[0])); if (scope) { addSeparatorToRandIdx(scope.end); showToast("選択肢を追加しました"); } else showToast("RANDパーツを選択してください"); };
+
+const cleanupRandGroup = (idx) => {
+  const chips = getTgtChips(), scope = findRandScope(chips, idx); if (!scope) return;
+  const toRemove = [];
+  for (let i = scope.start + 1; i < scope.end; i++) { if (chips[i].type !== 'rand_sep') continue; const prev = chips[i - 1], next = chips[i + 1]; if (prev?.type === 'rand_open' || next?.type === 'rand_close' || next?.type === 'rand_sep') toRemove.push(i.toString()); }
+  if (toRemove.length) { withChipUpdate('|（区切り）を整理', () => { removeChipsByPaths(chips, toRemove); state.selectedChips = []; }); showToast(`${toRemove.length}個の不要な区切りを整理しました`); } else showToast("整理の必要はありません");
+};
+
+const addRandomChip = e => { stopProp(e); withChipUpdate('ランダムコンテナ追加', () => { const chips = getTgtChips(); const lastIdx = state.selectedChips.length > 0 ? Math.max(...state.selectedChips.map(Number)) : chips.length - 1; chips.splice(lastIdx + 1, 0, { type: 'rand_open', text: '{' }, { type: 'rand_sep', text: '|' }, { type: 'rand_close', text: '}' }); state.selectedChips = [(lastIdx + 1).toString(), (lastIdx + 2).toString(), (lastIdx + 3).toString()]; }); };
+
+const clearOutput = () => { if (getTgtChips().length > 0 && !confirm("TEXTエリアのチップ・レーンを全て削除しますか？")) return; withChipUpdate('ワークスペースクリア', () => { state.outputTokens = [{chips: []}]; state.selectedChips = []; }); };
+
+const addLane = () => withChipUpdate('レーン追加', () => {
+  state.outputTokens.push({ name: `LANE ${state.outputTokens.length + 1}`, chips: [] });
+  state.activeLaneIndex = state.outputTokens.length - 1;
+});
+const deleteLane = (idx, e) => {
+  stopProp(e);
+  if (state.outputTokens.length <= 1) return;
+  const laneName = state.outputTokens[idx].name || `LANE ${idx + 1}`;
+  if (!confirm(`レーン「${laneName}」を削除しますか？`)) return;
+  withChipUpdate('レーン削除', () => { state.outputTokens.splice(idx, 1); if (state.activeLaneIndex >= state.outputTokens.length) state.activeLaneIndex = Math.max(0, state.outputTokens.length - 1); state.selectedChips = []; });
+};
+const copyLane = (idx, e) => { stopProp(e); const txt = formatChipsToString(state.outputTokens[idx].chips); copyText(txt, e); if (txt) addToHistory("レーンコピー"); };
+
+const getChipText = c => {
+  if (c.type === 'random') return `{${(c.slots || []).map(slot => slot.map(getChipText).join(', ')).join('|')}}`;
+  if (c.type === 'dynamic') { const opts = state.items.filter(i => i.tags.includes(c.tagName)).map(i => i.en); return c.selectedIndex === -1 ? (opts.length ? opts[Math.floor(Math.random() * opts.length)] : "") : (opts[c.selectedIndex || 0] || ""); }
+  return { 'newline': '\n', 'break': 'BREAK', 'rand_open': '{', 'rand_sep': '|', 'rand_close': '}' }[c.type] || c.text;
+};
+
+const formatChipsToString = (chips) => {
+  let r = "";
+  chips.forEach(c => {
+    const p = getChipText(c); if (!p) return;
+    if (p === '\n' || p === 'BREAK') {
+      if (r && !r.endsWith('\n') && !r.endsWith('BREAK ') && !r.endsWith('{') && !r.endsWith('|')) r = r.replace(/[ \t,]+$/, '') + ',';
+      r = r.replace(/[ \t]+$/, '') + (p === 'BREAK' ? ' BREAK ' : p);
+    }
+    else if (['{', '|', '}'].includes(p)) r = r.replace(/[ \t,]+$/, '') + p;
+    else r = r + (r && !r.endsWith('\n') && !r.endsWith('BREAK ') && !r.endsWith('{') && !r.endsWith('|') ? ', ' : '') + p;
+  }); return r.trim().replace(/,$/, '');
+};
+
+/** ワークスペース内の全レーンのプロンプトを結合して取得 */
+const getTerminalString = () => {
+  return state.outputTokens
+    .map(lane => formatChipsToString(lane.chips))
+    .filter(txt => txt.trim() !== '')
+    .join(', ');
+};
+
+const findRandScope = (chips, idx) => {
+  if (!['rand_open', 'rand_sep', 'rand_close'].includes(chips[idx]?.type)) return null;
+  let start = -1, end = -1, depth = 0;
+  for (let i = idx; i >= 0; i--) { if (chips[i].type === 'rand_close') depth++; else if (chips[i].type === 'rand_open') { depth--; if (depth <= 0) { start = i; break; } } }
+  if (start === -1) return null; depth = 0;
+  for (let i = start; i < chips.length; i++) { if (chips[i].type === 'rand_open') depth++; else if (chips[i].type === 'rand_close') { depth--; if (depth === 0) { end = i; break; } } }
+  return (start !== -1 && end !== -1) ? { start, end } : null;
+};
+
+const handleWsInputKey = e => {
+  const input = e.target, val = input.value.trim();
+  if (e.key === ',' || e.key === '，' || e.key === 'Enter') {
+    e.preventDefault();
+    if (!val) return;
+    withChipUpdate('チップ追加', () => {
+      const chips = getTgtChips();
+      parseTextToChips(val).forEach(c => chips.push(c));
+      state.pendingWsInput = ""; // 確定時にバッファをクリア
+    });
+    input.value = '';
+    input.focus();
+  }
+  else if (e.key === 'Backspace' && !input.value && getTgtChips().length > 0) { e.preventDefault(); withChipUpdate('チップ削除', () => getTgtChips().pop()); $('ws-input-field')?.focus(); }
+};
+
+const scrollWsContainer = (e) => {
+  const c = $('ws-lanes-container'); if (!c) return;
+  const rect = c.getBoundingClientRect();
+  if (e.clientY < rect.top + 50) c.scrollTop -= 12;
+  else if (e.clientY > rect.bottom - 50) c.scrollTop += 12;
+};
+
+const renderChips = () => {
+  const c = $('ws-lanes-container'); if (!c) return; c.innerHTML = '';
+  
+  // コンテナ自体のドラッグオーバーとドロップ（隙間へのドロップ対応）
+  c.ondragover = e => { if (Array.from(e.dataTransfer.types).includes('application/lane-idx')) e.preventDefault(); };
+  c.ondrop = e => {
+    const fromIdx = parseInt(e.dataTransfer.getData('application/lane-idx'));
+    if (isNaN(fromIdx) || e.target !== c) return;
+    e.preventDefault();
+    withChipUpdate('レーン移動', () => {
+      const item = state.outputTokens.splice(fromIdx, 1)[0];
+      const isTop = e.clientY < c.getBoundingClientRect().top + 50;
+      if (isTop) { state.outputTokens.unshift(item); state.activeLaneIndex = 0; }
+      else { state.outputTokens.push(item); state.activeLaneIndex = state.outputTokens.length - 1; }
+    });
+  };
+
+  state.outputTokens.forEach((lane, laneIdx) => {
+    const isAct = laneIdx === state.activeLaneIndex, laneEl = createEl('div', `ws-lane ${isAct ? 'active-lane' : ''}`);
+    laneEl.draggable = false;
+
+    // Lane Drag Events
+    laneEl.ondragstart = (e) => {
+      e.dataTransfer.setData('application/lane-idx', String(laneIdx));
+      setTimeout(() => laneEl.classList.add('lane-dragging'), 0);
+    };
+    laneEl.ondragend = () => { laneEl.classList.remove('lane-dragging'); laneEl.draggable = false; };
+    laneEl.onmouseup = laneEl.onmouseleave = () => laneEl.classList.remove('lane-active-press');
+    laneEl.ondragover = (e) => {
+      const types = Array.from(e.dataTransfer.types);
+      if (types.includes('application/lane-idx')) {
+        e.preventDefault();
+        const rect = laneEl.getBoundingClientRect();
+        const isBottom = e.clientY > rect.top + rect.height / 2;
+        laneEl.classList.toggle('lane-drag-over-top', !isBottom);
+        laneEl.classList.toggle('lane-drag-over-bottom', isBottom);
+      }
+    };
+    laneEl.ondragleave = (e) => { if (!laneEl.contains(e.relatedTarget)) laneEl.classList.remove('lane-drag-over-top', 'lane-drag-over-bottom'); };
+    laneEl.ondrop = (e) => {
+      const types = Array.from(e.dataTransfer.types);
+      if (!types.includes('application/lane-idx')) return;
+      e.preventDefault();
+      const rect = laneEl.getBoundingClientRect();
+      const isBottom = e.clientY > rect.top + rect.height / 2;
+      laneEl.classList.remove('lane-drag-over-top', 'lane-drag-over-bottom');
+      
+      const fromIdx = parseInt(e.dataTransfer.getData('application/lane-idx'));
+      if (!isNaN(fromIdx)) {
+        withChipUpdate('レーン並び替え', () => {
+          const list = [...state.outputTokens];
+          const movingItem = list.splice(fromIdx, 1)[0];
+          // 移動対象を除いたリスト内でのターゲットの位置を再計算
+          let targetIdx = list.indexOf(lane); 
+          if (isBottom) targetIdx++;
+          list.splice(targetIdx, 0, movingItem);
+          state.outputTokens = list;
+          state.activeLaneIndex = targetIdx;
+        });
+      }
+    };
+
+    const header = createEl('div', 'ws-lane-header');
+    
+    const dragHandle = createEl('span', 'material-symbols-outlined lane-drag-handle', 'drag_indicator');
+    dragHandle.onmousedown = () => { laneEl.draggable = true; laneEl.classList.add('lane-active-press'); };
+    header.appendChild(dragHandle);
+
+    const nameInp = createEl('input');
+    nameInp.type = 'text'; nameInp.value = lane.name || ''; nameInp.placeholder = `LANE ${laneIdx + 1}`;
+    nameInp.style.cssText = 'background:transparent; border:none; color:inherit; font:inherit; font-weight:bold; outline:none; padding:2px 4px; border-radius:3px; flex:1; min-width:0; cursor:text; transition:background 0.2s; margin-right:4px;';
+    nameInp.title = "クリックして名前を変更"; nameInp.onfocus = () => nameInp.style.background = 'var(--input-bg)'; 
+    nameInp.onblur = () => { 
+      nameInp.style.background = 'transparent'; 
+      const v = nameInp.value.trim(); 
+      if (v !== (lane.name || "")) { recordChange('レーン名変更'); lane.name = v; save(); renderChips(); } 
+    };
+    nameInp.onkeydown = e => { if (e.key === 'Enter') e.target.blur(); }; nameInp.onclick = stopProp; header.appendChild(nameInp);
+
+    const bw = createEl('div'); bw.style.display = 'flex'; bw.style.gap = '4px';
+    header.appendChild(bw);
+    laneEl.appendChild(header);
+
+    bw.innerHTML = `
+      <button class="btn-icon-sm" onclick="copyLane(${laneIdx}, event)" title="レーン内容をコピー" style="color: var(--accent-color); background: var(--active-bg-color); border: 1px solid var(--border-color); padding: 4px 24px;"><span class="material-symbols-outlined" style="font-size:1.1rem;">content_copy</span></button>
+      <button class="btn-icon-sm" onclick="showLaneContextMenu(event, ${laneIdx})" title="その他の操作" style="border: 1px solid transparent;"><span class="material-symbols-outlined" style="font-size:1.1rem;">more_vert</span></button>`;
+
+    const body = createEl('div', 'ws-lane-body'); laneEl.appendChild(body);
+    laneEl.onclick = (e) => { if (state.activeLaneIndex !== laneIdx) { state.activeLaneIndex = laneIdx; state.selectedChips = []; renderChips(); setTimeout(() => $('ws-input-field')?.focus(), 10); } else if (e.target === body) $('ws-input-field')?.focus(); };
+    const f = document.createDocumentFragment(), rChips = lane.chips, addBr = () => { const br = createEl('div'); br.style.cssText = 'width:100%; height:0; margin:0; padding:0;'; f.appendChild(br); };
+
+    const renderSingle = (tk, path) => {
+      const isR = tk.type === 'random', isD = tk.type === 'dynamic', isRC = ['rand_open', 'rand_sep', 'rand_close'].includes(tk.type), isSel = isAct && state.selectedChips.some(s => path === s || path.startsWith(s + '-'));
+      let inRand = path.includes('-');
+      if (!inRand) { let depth = 0; for (let i = 0; i < Number(path); i++) { if (rChips[i].type === 'rand_open') depth++; else if (rChips[i].type === 'rand_close') depth--; } if (depth > 0) inRand = true; }
+      const cls = `prompt-chip ${isSel ? 'selected-chip' : ''} ${tk.type === 'break' ? 'chip-break' : ''} ${tk.type === 'newline' ? 'chip-newline' : ''} ${isR ? 'chip-random' : ''} ${isD ? 'chip-dynamic' : ''} ${isRC ? 'chip-rand-control ' + (tk.type === 'rand_sep' ? 'chip-rand-sep' : '') : ''} ${(inRand && !isRC && !isR) ? 'chip-in-rand' : ''}`;
+      const d = createEl('div', cls); d.draggable = true;
+      d.dataset.path = path;
+
+      if (isD) {
+        d.appendChild(createEl('span', '', `<span style="opacity:0.8; font-weight:normal; margin-right:2px;">[${tk.tagName}]</span>`));
+        const sel = createEl('select', 'chip-select-el dynamic-sel');
+        sel.innerHTML = `<option value="-1" style="background:var(--header-bg)" ${tk.selectedIndex === -1 ? 'selected' : ''}>* RANDOM *</option>`;
+        const opts = state.items.filter(i => i.tags.includes(tk.tagName)).map(i => i.ja || i.en);
+        if (!opts.length) sel.innerHTML += `<option>(空)</option>`;
+        opts.forEach((opt, idx) => {
+          sel.innerHTML += `<option value="${idx}" style="background:var(--header-bg)" ${tk.selectedIndex !== -1 && idx === (tk.selectedIndex || 0) ? 'selected' : ''}>${escapeHTML(opt)}</option>`;
+        });
+        sel.onchange = ev => { stopProp(ev); recordChange('選択変更'); tk.selectedIndex = parseInt(ev.target.value); save(); }; sel.onmousedown = sel.onclick = stopProp; d.appendChild(sel);
+      } else if (isR) {
+        d.innerHTML = `<span style="color:var(--rand-color); font-weight:700; margin-right:4px;">{</span>`;
+        (tk.slots || []).forEach((slot, sIdx) => {
+          const slotEl = createEl('div', 'random-slot'); slot.forEach((iTk, iIdx) => slotEl.appendChild(renderSingle(iTk, `${path}-${sIdx}-${iIdx}`)));
+          slotEl.ondragover = ev => { ev.preventDefault(); stopProp(ev); slotEl.classList.add('drag-over'); }; slotEl.ondragleave = () => slotEl.classList.remove('drag-over');
+          slotEl.ondrop = ev => { if (ev.target !== slotEl) return; ev.preventDefault(); stopProp(ev); slotEl.classList.remove('drag-over'); const data = JSON.parse(ev.dataTransfer.getData('application/json')); if (data?.type === 'chip' && !path.startsWith(data.paths[0] + '-')) { withChipUpdate('スロットへ移動', () => { const moved = data.paths.map(p => JSON.parse(JSON.stringify(getChipByPath(rChips, p)))); removeChipsByPaths(rChips, data.paths); tk.slots[sIdx].push(...moved); }); } };
+          d.appendChild(slotEl); if (sIdx < tk.slots.length - 1) d.appendChild(createEl('span', 'random-sep', '|'));
+        });
+        const addBtn = createEl('span', 'btn-add-slot', '<span class="material-symbols-outlined" style="font-size:1rem;">add</span>'); addBtn.onclick = e => { stopProp(e); withChipUpdate('スロット追加', () => tk.slots.push([])); };
+        d.appendChild(addBtn); d.appendChild(createEl('span', '', '}')); d.lastChild.style.cssText = "color:var(--rand-color); font-weight:700;"; d.style.cursor = 'default';
+      } else {
+        // Security Fix: Use textContent for user-provided strings to prevent XSS
+        if (isRC) {
+            d.textContent = tk.text;
+            d.title = tk.type === 'rand_open' ? "ランダム開始" : tk.type === 'rand_sep' ? "ランダム区切り" : "ランダム終了";
+        } else {
+            d.textContent = tk.type === 'newline' ? '改行' : tk.type === 'break' ? 'BREAK' : tk.text;
+        }
+      }
+
+      d.onclick = e => { if (isAct) stopProp(e); }; d.oncontextmenu = e => showChipContextMenu(e, path);
+      d.onmousedown = e => {
+        stopProp(e); if (state.activeLaneIndex !== laneIdx) { state.activeLaneIndex = laneIdx; state.selectedChips = []; }
+        if (state.selectedChips.includes(path) && !e.ctrlKey && !e.shiftKey) return;
+        if (isRC && !e.ctrlKey && !e.shiftKey && !path.includes('-')) { const scope = findRandScope(rChips, Number(path)); if (scope) { state.selectedChips = Array.from({length: scope.end - scope.start + 1}, (_, i) => (scope.start + i).toString()); lastSelectedChipIdx = path; renderChips(); return; } }
+        if (e.shiftKey && lastSelectedChipIdx !== null && !path.includes('-') && !lastSelectedChipIdx.toString().includes('-')) { const start = Math.min(Number(lastSelectedChipIdx), Number(path)), end = Math.max(Number(lastSelectedChipIdx), Number(path)), range = Array.from({length: end - start + 1}, (_, i) => (start + i).toString()); state.selectedChips = e.ctrlKey ? [...new Set([...state.selectedChips, ...range])] : range; }
+        else if (e.ctrlKey || e.metaKey) { const i = state.selectedChips.indexOf(path); if (i > -1) state.selectedChips.splice(i, 1); else state.selectedChips.push(path); lastSelectedChipIdx = path; } else { state.selectedChips = [path]; lastSelectedChipIdx = path; }
+        renderChips();
+      };
+      d.ondragstart = e => {
+        stopProp(e);
+        const dragPaths = isSel ? [...state.selectedChips] : [path];
+        e.dataTransfer.setData('application/json', JSON.stringify({type: 'chip', fromLaneIndex: laneIdx, paths: dragPaths}));
+        
+        // カスタムドラッグイメージ（選択された全てのチップを表示）の作成
+        const ghost = createEl('div');
+        ghost.style.cssText = "position:absolute;top:-2000px;left:-2000px;display:flex;gap:4px;flex-wrap:wrap;max-width:500px;opacity:0.9;pointer-events:none;z-index:-1;background:transparent;";
+        dragPaths.forEach(p => {
+          const orig = laneEl.querySelector(`.prompt-chip[data-path="${p}"]`);
+          if (orig) {
+            const clone = orig.cloneNode(true);
+            clone.classList.remove('dragging', 'selected-chip');
+            clone.querySelectorAll('select').forEach(s => s.replaceWith(createEl('span', '', s.options[s.selectedIndex]?.text || '')));
+            ghost.appendChild(clone);
+          }
+        });
+        document.body.appendChild(ghost);
+        e.dataTransfer.setDragImage(ghost, 10, 10);
+        
+        setTimeout(() => { ghost.remove(); dragPaths.forEach(p => laneEl.querySelector(`.prompt-chip[data-path="${p}"]`)?.classList.add('dragging')); }, 0);
+      };
+      d.ondragend = () => { $$('.prompt-chip.dragging').forEach(el => el.classList.remove('dragging')); };
+      d.ondragover = e => {
+        const types = Array.from(e.dataTransfer.types);
+        const isChipOrLib = dragContext.ids.length > 0 || types.includes('application/json');
+        if (!isChipOrLib) return; // レーンのドラッグ時はバブリングを許容
+        e.preventDefault(); stopProp(e);
+        const isAfter = e.clientX > d.getBoundingClientRect().left + d.getBoundingClientRect().width / 2; d.classList.toggle('chip-insert-left', !isAfter); d.classList.toggle('chip-insert-right', isAfter);
+      };
+      d.addEventListener('dragover', scrollWsContainer);
+      d.ondragleave = () => d.classList.remove('chip-insert-left', 'chip-insert-right');
+      d.ondrop = e => {
+        const isChipOrLib = dragContext.ids.length > 0 || e.dataTransfer.types.includes('application/json');
+        if (!isChipOrLib) return; // レーンのドラッグ時はバブリングを許容
+        e.preventDefault(); stopProp(e); d.classList.remove('chip-insert-left', 'chip-insert-right');
+        const isAfter = e.clientX > d.getBoundingClientRect().left + d.getBoundingClientRect().width / 2, p = path.toString().split('-').map(Number), origPCount = p.length, prefix = origPCount > 1 ? p.slice(0, -1).join('-') + "-" : ""; let tIdx = isAfter ? p.pop() + 1 : p.pop();
+        if (dragContext.ids.length > 0) {
+          let targetArr = rChips; if (p.length > 0) { let cur = rChips[p[0]]; for (let i = 1; i < p.length - 1; i += 2) cur = cur.slots[p[i]][p[i+1]]; targetArr = cur.slots[p[p.length - 1]]; }
+          state.activeLaneIndex = laneIdx; addToTerminal(dragContext.ids[0], e, targetArr, tIdx, prefix); dragContext.ids = []; return;
+        }
+        const json = e.dataTransfer.getData('application/json'); if (!json) return; const data = JSON.parse(json), fromLaneIdx = data.fromLaneIndex; if (data?.type !== 'chip' || (fromLaneIdx === laneIdx && path.toString().startsWith(data.paths[0] + '-'))) return;
+        withChipUpdate('チップ移動', () => {
+          const sourceArr = state.outputTokens[fromLaneIdx].chips, moved = data.paths.map(pPath => JSON.parse(JSON.stringify(getChipByPath(sourceArr, pPath))));
+          let adjTIdx = tIdx; if (fromLaneIdx === laneIdx) { const movedBefore = data.paths.filter(pStr => { const pts = pStr.split('-').map(Number); if (pts.length !== origPCount) return false; for (let k = 0; k < pts.length - 1; k++) if (pts[k] !== p[k]) return false; return pts[pts.length - 1] < tIdx; }).length; adjTIdx -= movedBefore; }
+          removeChipsByPaths(sourceArr, data.paths);
+          if (p.length === 0) rChips.splice(adjTIdx, 0, ...moved); else { let cur = rChips[p[0]]; for (let i = 1; i < p.length - 1; i += 2) cur = cur.slots[p[i]][p[i+1]]; cur.slots[p[p.length - 1]].splice(adjTIdx, 0, ...moved); }
+          state.selectedChips = []; state.activeLaneIndex = laneIdx;
+        });
+      };
+      return d;
+    };
+
+    rChips.forEach((tk, i) => { if (['newline', 'break'].includes(tk.type)) addBr(); f.appendChild(renderSingle(tk, i.toString())); if (['newline', 'break'].includes(tk.type)) addBr(); });
+    if (isAct) {
+      const input = createEl('input', 'ws-inline-input'); input.id = 'ws-input-field';
+      input.value = state.pendingWsInput || "";
+      input.placeholder = rChips.length === 0 ? "プロンプトを入力..." : "";
+      input.setAttribute('list', 'ws-suggestions-datalist');
+      input.onkeydown = handleWsInputKey;
+      input.oninput = (e) => {
+        state.pendingWsInput = e.target.value; // 入力内容を逐次保存
+        updateWorkspaceSuggestions(e.target.value);
+      };
+      input.onfocus = clearChipSelection;
+      f.appendChild(input);
+    }
+    body.appendChild(f); c.appendChild(laneEl); if (isAct) body.scrollTop = body.scrollHeight;
+    body.ondragover = e => {
+      const types = Array.from(e.dataTransfer.types);
+      const isChipOrLib = dragContext.ids.length > 0 || types.includes('application/json');
+      if (!isChipOrLib) return; // レーンのドラッグ時はバブリングを許容
+      e.preventDefault(); scrollWsContainer(e); body.classList.add('drag-over-ws');
+    };
+    body.ondragleave = () => body.classList.remove('drag-over-ws');
+    body.ondrop = e => {
+      body.classList.remove('drag-over-ws');
+      if (dragContext.ids.length > 0 && (e.target === body || body.contains(e.target))) { e.preventDefault(); state.activeLaneIndex = laneIdx; addToTerminal(dragContext.ids[0], e); dragContext.ids = []; return; }
+      const json = e.dataTransfer.getData('application/json');
+      if (json && (e.target === body || body.contains(e.target))) { const data = JSON.parse(json); if (data?.type === 'chip') { const fromLaneIdx = data.fromLaneIndex, sourceArr = state.outputTokens[fromLaneIdx].chips; withChipUpdate(fromLaneIdx === laneIdx ? 'チップ抽出' : 'レーン間移動', () => { const moved = data.paths.map(pPath => JSON.parse(JSON.stringify(getChipByPath(sourceArr, pPath)))); removeChipsByPaths(sourceArr, data.paths); rChips.push(...moved); state.selectedChips = []; state.activeLaneIndex = laneIdx; }); } }
+    };
+  });
+};
+
+const showLaneContextMenu = (e, idx) => {
+  stopProp(e);
+  const m = $('context-menu');
+  m.style.display = 'block';
+  
+  toggleDisplay(['cm-copy', 'cm-clone', 'cm-change-tag', 'cm-add-sep', 'cm-cleanup-rand', 'cm-add-to-lib', 'cm-add-to-lib-indiv', 'cm-delete-thumb'], false);
+  
+  const delBtn = $('cm-delete');
+  delBtn.style.display = state.outputTokens.length > 1 ? 'flex' : 'none';
+
+  let x = e.clientX, y = e.clientY;
+  if (x + m.offsetWidth > window.innerWidth) x = window.innerWidth - m.offsetWidth - 10;
+  if (y + m.offsetHeight > window.innerHeight) y = window.innerHeight - m.offsetHeight - 10;
+  m.style.left = x + 'px'; m.style.top = y + 'px';
+
+  delBtn.onclick = () => deleteLane(idx, e);
+  
+  // 他にレーン専用の機能があればここに追加（例：レーン複製など）
+};
+
+const clearChipSelection = () => { if (state.selectedChips.length) { state.selectedChips = []; renderChips(); } };
+
+/* History Management */
+const addToHistory = (source = "") => {
+  // 履歴には全レーンの構成を保存
+  const tokens = JSON.parse(JSON.stringify(state.outputTokens)); 
+  const text = getTerminalString();
+  if (!text || (state.history.length > 0 && state.history[state.history.length - 1].text === text)) return;
+  recordChange(source || "履歴追加"); 
+  state.history.push({ timestamp: Date.now(), source, text, tokens }); 
+  if (state.history.length > 50) state.history.shift(); 
+  save(); 
+  if ($('tab-history').style.display === 'flex') renderHistory();
+};
+const setHistoryFilter = f => { state.historyFilter = f; $$('.history-toggle-item').forEach(el => el.classList.remove('active')); const idMap = { 'all': 'hf-all', '保存': 'hf-save', 'ライブラリ追加': 'hf-lib', '全体コピー': 'hf-copy' }; if ($(idMap[f])) $(idMap[f]).classList.add('active'); renderHistory(); };
+const renderHistory = () => {
+  const c = $('history-list'); if (!c) return; const filtered = state.historyFilter === 'all' ? state.history : state.history.filter(h => h.source === state.historyFilter);
+  c.innerHTML = filtered.length === 0 ? '<div class="empty-detail" style="padding:10px;">履歴がありません</div>' : '';
+  filtered.forEach(entry => { const item = createEl('div', 'ws-panel', `<div style="background:var(--panel-bg);border:1px solid var(--border-color);border-radius:4px;padding:10px;cursor:pointer;position:relative;" class="history-item" title="${escapeHTML(entry.text)}"><div style="font-size:0.65rem;color:var(--text-dim);margin-bottom:4px;display:flex;justify-content:space-between;"><span>${formatDate(entry.timestamp)}${entry.source?` [${entry.source}]`:''}</span><div style="display:flex;gap:8px;align-items:center;"><span class="material-symbols-outlined" style="font-size:1rem;cursor:pointer;color:var(--text-dim);" onclick="event.stopPropagation();copyText(state.history[${state.history.indexOf(entry)}].text,event)" title="コピー">content_copy</span><span class="material-symbols-outlined text-danger" style="font-size:1rem;cursor:pointer;" onclick="event.stopPropagation();deleteHistoryEntry(${state.history.indexOf(entry)})">delete</span></div></div><div style="font-size:0.75rem;color:var(--text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:'JetBrains Mono',monospace;">${escapeHTML(entry.text)}</div><div style="font-size:0.65rem;color:var(--accent-color);margin-top:4px;text-align:right;font-weight:700;">クリックで復元</div></div>`); item.onclick = () => restoreHistory(state.history.indexOf(entry)); c.appendChild(item); });
+  const tab = $('tab-history'); if (tab) tab.scrollTop = tab.scrollHeight;
+};
+const restoreHistory = idx => { 
+  const entry = state.history[idx]; 
+  if (!entry) return; 
+  withChipUpdate('履歴から復元', () => { 
+    state.outputTokens = JSON.parse(JSON.stringify(entry.tokens || [{chips: entry.chips}])); 
+    state.selectedChips = []; 
+    state.activeLaneIndex = 0;
+  }); 
+  showToast("履歴から復元しました"); 
+};
+const deleteHistoryEntry = idx => { recordChange('履歴削除'); state.history.splice(idx, 1); save(); renderHistory(); };
+const clearAllHistory = () => { if (confirm("すべての出力履歴を削除しますか？")) { recordChange('全履歴削除'); state.history = []; save(); renderHistory(); } };
+
+/* Workspace Preset Management */
+const showWsPresetsModal = () => { $('ws-presets-modal').style.display = 'flex'; $('ws-preset-name-input').value = ''; renderWsPresets(); };
+const renderWsPresets = () => {
+  const c = $('ws-presets-list'); c.innerHTML = '';
+  if (state.wsPresets.length === 0) { c.innerHTML = '<div class="empty-detail" style="padding:20px;">保存されたプリセットはありません</div>'; return; }
+  state.wsPresets.forEach((p, idx) => {
+    const item = createEl('div', ''), row = createEl('div', 'history-item');
+    row.style.cssText = "background:var(--panel-bg); border:1px solid var(--border-color); border-radius:4px; padding:10px; display:flex; justify-content:space-between; align-items:center; transition:0.2s; cursor:pointer;";
+    row.onclick = () => loadWsPreset(idx);
+    const left = createEl('div'); left.style.cssText = "flex:1; min-width:0; margin-right:15px;";
+    const nameInp = createEl('input'); nameInp.type = 'text'; nameInp.value = p.name;
+    nameInp.style.cssText = "background:transparent; border:none; color:var(--text-color); font-size:0.85rem; font-weight:700; width:100%; outline:none; padding:2px 4px; border-radius:3px; margin-bottom:2px; cursor:text; transition: background 0.2s;";
+    nameInp.onclick = stopProp; nameInp.onfocus = () => nameInp.style.background = 'var(--input-bg)';
+    nameInp.onblur = () => {
+      nameInp.style.background = 'transparent';
+      const v = nameInp.value.trim();
+      if (v && v !== p.name) { p.name = v; save(); renderWsPresets(); showToast("名前を更新しました"); }
+    };
+    nameInp.onkeydown = e => { if (e.key === 'Enter') e.target.blur(); };
+    const meta = createEl('div'); meta.style.cssText = "font-size:0.65rem; color:var(--text-dim); padding-left:4px;";
+    meta.innerText = `${p.tokens.length} レーン / ${formatDate(p.timestamp)}`;
+    left.appendChild(nameInp); left.appendChild(meta);
+    const right = createEl('div'); right.style.cssText = "display:flex; gap:4px;"; right.onclick = stopProp;
+    right.innerHTML = `<button class="btn-icon-sm" onclick="loadWsPreset(${idx})" title="読み込む"><span class="material-symbols-outlined" style="font-size:1.2rem; color:var(--accent-color);">upload_file</span></button><button class="btn-icon-sm text-danger" onclick="deleteWsPreset(${idx})" title="削除"><span class="material-symbols-outlined" style="font-size:1.2rem;">delete</span></button>`;
+    row.appendChild(left); row.appendChild(right); item.appendChild(row);
+    c.appendChild(item);
+  });
+};
+const saveCurrentAsWsPreset = () => {
+  const name = $('ws-preset-name-input').value.trim() || `Preset ${state.wsPresets.length + 1}`;
+  state.wsPresets.push({ name, timestamp: Date.now(), tokens: JSON.parse(JSON.stringify(state.outputTokens)) });
+  save(); renderWsPresets(); $('ws-preset-name-input').value = ''; showToast("プリセットを保存しました");
+};
+const loadWsPreset = idx => { if (!confirm(`プリセット「${state.wsPresets[idx].name}」を読み込みますか？\n現在の構成は上書きされます。`)) return; withChipUpdate('プリセット読込', () => { state.outputTokens = JSON.parse(JSON.stringify(state.wsPresets[idx].tokens)); state.activeLaneIndex = 0; state.selectedChips = []; }); $('ws-presets-modal').style.display = 'none'; showToast("プリセットを読み込みました"); };
+const deleteWsPreset = idx => { if (!confirm("このプリセットを削除しますか？")) return; state.wsPresets.splice(idx, 1); save(); renderWsPresets(); };
+
+const updateWorkspaceSuggestions = (val) => {
+  const dl = $('ws-suggestions-datalist');
+  if (!dl) return;
+  dl.innerHTML = '';
+  const q = val.trim().toLowerCase();
+  if (q.length < 1) return;
+
+  const suggestions = [];
+  const seen = new Set();
+
+  state.items.forEach(item => {
+    if (!item.en) return;
+    const candidates = item.en.split(/[,;]+/).map(s => s.trim());
+    candidates.forEach(en => {
+      const low = en.toLowerCase();
+      if (low && low.startsWith(q) && !seen.has(low)) {
+        suggestions.push({ en: en });
+        seen.add(low);
+      }
+    });
+  });
+
+  suggestions.sort((a, b) => a.en.localeCompare(b.en)).slice(0, 15).forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.en;
+    dl.appendChild(opt);
+  });
+};
+
+/* Layout Resizers */
+const initResizers = () => {
+  $('resizer-left').onmousedown = () => { document.onmousemove = e => { if (e.pageX > 200 && e.pageX < 600) $('sidebar').style.width = e.pageX + 'px'; }; document.onmouseup = () => { document.onmousemove = null; state.layout.sidebarWidth = $('sidebar').style.width; save(); }; };
+  $('resizer-right').onmousedown = e => { const sw = $('right-sidebar').offsetWidth, sx = e.pageX; document.onmousemove = ev => { const nw = sw - (ev.pageX - sx); if (nw > 300 && nw < 800) $('right-sidebar').style.width = nw + 'px'; }; document.onmouseup = () => { document.onmousemove = null; state.layout.rightSidebarWidth = $('right-sidebar').style.width; save(); }; };
+  $('resizer-ws').onmousedown = e => { const sy = e.pageY, sh = $('detail-area').offsetHeight; document.onmousemove = ev => { const nh = sh + (ev.pageY - sy); if (nh > 100 && nh < innerHeight * .7) $('detail-area').style.height = nh + 'px'; }; document.onmouseup = () => { document.onmousemove = null; state.layout.detailHeight = $('detail-area').style.height; save(); }; };
+  $('resizer-left').onmouseup = $('resizer-right').onmouseup = $('resizer-ws').onmouseup = () => { document.onmousemove = null; };
+};
+
+/* API Integrations (Gemini & Translation) */
+const fetchGeminiModels = async e => {
+  if (e) e.preventDefault(); const apiKey = $('setting-gemini-apikey').value; if (!apiKey) return alert('先にAPIキーを入力してください。'), switchTab('ai');
+  const btn = $('btn-refresh-models'), icon = btn.querySelector('.material-symbols-outlined'); icon.style.animation = 'spin 1s linear infinite'; btn.disabled = true;
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`); if (!res.ok) throw new Error('APIリクエストに失敗しました。');
+    const models = (await res.json()).models.filter(m => m.supportedGenerationMethods.includes('generateContent')).map(m => m.name.replace('models/', ''));
+    $('setting-gemini-model').innerHTML = models.map(m => `<option value="${m}" ${m === state.geminiSync.model ? 'selected' : ''}>${m}</option>`).join('');
+    if (models.length > 0 && !models.includes(state.geminiSync.model)) updateGeminiSettings(); showToast("モデルリストを更新しました");
+  } catch (err) { alert('エラー: ' + err.message); } finally { icon.style.animation = ''; btn.disabled = false; }
+};
+const toggleApiKeyVisibility = () => {
+  const el = $('setting-gemini-apikey'), icon = $('apikey-visibility-icon');
+  const isPass = el.type === 'password';
+  el.type = isPass ? 'text' : 'password';
+  icon.innerText = isPass ? 'visibility' : 'visibility_off';
+};
+const resetGeminiPrompt = () => {
+  if (!confirm("カスタム命令をデフォルト（標準の翻訳指示）に戻しますか？")) return;
+  $('setting-gemini-prompt').value = DEFAULT_SYSTEM_PROMPT;
+  updateGeminiSettings();
+  showToast("デフォルトに戻しました");
+};
+const resetGeminiVisionPrompt = () => {
+  if (!confirm("画像解析プロンプトをデフォルトに戻しますか？")) return;
+  $('setting-gemini-vision-prompt').value = DEFAULT_VISION_PROMPT;
+  updateGeminiSettings();
+  showToast("デフォルトに戻しました");
+};
+const translateQuickAdd = async () => {
+  const jaEl = $('qa-ja'), enEl = $('qa-en'), text = jaEl.value.trim(); if (!text) return;
+  if (!state.geminiSync.apiKey) return alert('AIタブからGemini APIキーを設定してください。'), switchTab('ai');
+  const btn = $('btn-qa-translate'), sendBtn = $('btn-qa-send'), origIcon = btn.innerHTML; btn.innerHTML = '<span class="material-symbols-outlined thinking">smart_toy</span>'; btn.disabled = jaEl.disabled = enEl.disabled = sendBtn.disabled = true;
+  let success = false;
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${state.geminiSync.model || 'gemini-1.5-flash'}:generateContent?key=${state.geminiSync.apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: `${state.geminiSync.systemPrompt || DEFAULT_SYSTEM_PROMPT}\n\n入力: ${text}` }] }], generationConfig: { temperature: 0.3 } }) });
+    const data = await res.json(); if (!res.ok) throw new Error(data.error?.message || 'API request failed');
+    enEl.value = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim().replace(/^```[a-zA-Z]*\n/i, '').replace(/\n```$/, '').split('\n').filter(l => l.trim()).join(', ') || '';
+    success = true;
+    showToast('翻訳しました');
+  } catch (e) { alert('翻訳エラー: ' + e.message); } finally {
+    btn.innerHTML = origIcon;
+    btn.disabled = jaEl.disabled = enEl.disabled = sendBtn.disabled = false;
+    if (success) enEl.focus();
+  }
+};
+
+const describeImageWithAi = async (file) => {
+  if (!state.geminiSync.apiKey) return;
+  const jaEl = $('qa-ja'), enEl = $('qa-en'), btn = $('btn-qa-translate'), sendBtn = $('btn-qa-send'), origIcon = btn.innerHTML;
+  
+  btn.innerHTML = '<span class="material-symbols-outlined thinking">smart_toy</span>';
+  enEl.value = "AIが画像を解析中...";
+  btn.disabled = jaEl.disabled = enEl.disabled = sendBtn.disabled = true;
+  let success = false;
+
+  try {
+    const base64Data = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.readAsDataURL(file);
+    });
+
+    // 解析用のプロンプト
+    const visionPrompt = state.geminiSync.visionPrompt || DEFAULT_VISION_PROMPT;
+
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${state.geminiSync.model || 'gemini-1.5-flash'}:generateContent?key=${state.geminiSync.apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { text: visionPrompt },
+            { inline_data: { mime_type: file.type, data: base64Data } }
+          ]
+        }]
+      })
+    });
+
+    const data = await res.json(); if (!res.ok) throw new Error(data.error?.message || 'API request failed');
+    enEl.value = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim().replace(/\n/g, ', ') || '';
+    success = true;
+    showToast('AIによる画像解析が完了しました');
+  } catch (e) { 
+    enEl.value = "";
+    alert('AI画像解析エラー: ' + e.message); 
+  } finally {
+    btn.innerHTML = origIcon;
+    btn.disabled = jaEl.disabled = enEl.disabled = sendBtn.disabled = false;
+    if (success) enEl.focus();
+  }
+};
+const openInGoogleTranslate = (t, e) => { if (!t) return showToast("翻訳するテキストがありません", e); window.open(`https://translate.google.com/?sl=auto&tl=ja&text=${encodeURIComponent(t.replace(/, /g, ',\n').replace(/,/g, ',\n'))}`, '_blank', 'noopener,noreferrer'); showToast("Google翻訳で開きました", e); };
+const openGoogleTranslate = () => { const e = $('qa-en'); openInGoogleTranslate(e ? e.value.trim() : '', null); };
+const openItemInGoogleTranslate = (id, e) => { stopProp(e); const i = getItem(id); openInGoogleTranslate(i ? i.en.trim() : '', e); };
+
+/* Import / Export */
+const exportJSON = () => {
+  // APIキーをバックアップに含めないよう、認証情報を除外したコピーを作成
+  const safeGeminiSync = { ...state.geminiSync };
+  delete safeGeminiSync.apiKey;
+
+  // 履歴データのクリーンアップ（旧形式のchipsをtokensに統合し、冗長な項目を削除）
+  const cleanHistory = state.history.map(h => {
+    const entry = { ...h };
+    if (entry.chips && !entry.tokens) {
+      entry.tokens = [{ chips: entry.chips }];
+    }
+    delete entry.chips; // 過去の単一レーン時代のプロパティを削除
+    return entry;
+  });
+
+  const backupData = {
+    version: "2.3",
+    exportDate: new Date().toISOString(),
+    items: state.items,
+    outputTokens: state.outputTokens,
+    activeLaneIndex: state.activeLaneIndex,
+    history: cleanHistory,
+    wsPresets: state.wsPresets,
+    geminiSync: safeGeminiSync, // APIキー抜きの設定のみ
+    layout: state.layout,
+    theme: state.theme
+  };
+  const a = createEl('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' }));
+  a.download = `prompt_library_backup_${Date.now()}.json`;
+  a.click();
+};
+const validateImportData = (data) => {
+  try {
+    if (typeof data !== 'object' || data === null) throw "データ形式が不正です。";
+    const checkItem = (it) => {
+      if (!it || typeof it !== 'object' || !it.id) throw "不完全なアイテムが含まれています。";
+      if (it.ja && typeof it.ja !== 'string') it.ja = String(it.ja);
+      if (it.en && typeof it.en !== 'string') it.en = String(it.en);
+    };
+    if (Array.isArray(data)) {
+      data.forEach(checkItem);
+    } else {
+      const keys = ['items', 'outputTokens', 'history', 'wsPresets'];
+      keys.forEach(k => {
+        if (data[k] && !Array.isArray(data[k])) throw `${k}が配列ではありません。`;
+      });
+      if (data.items) data.items.forEach(checkItem);
+    }
+    return true;
+  } catch (e) {
+    alert("インポートを中断しました（バリデーションエラー）: " + e);
+    return false;
+  }
+};
+const importJSON = inp => {
+  const r = new FileReader();
+  r.onload = async e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!validateImportData(data)) return;
+      withMainUpdate('インポート', () => {
+        if (Array.isArray(data)) { state.items = data; }
+        else {
+          if (data.items) state.items = data.items;
+          if (data.outputTokens) state.outputTokens = data.outputTokens;
+          if (data.activeLaneIndex !== undefined) state.activeLaneIndex = Math.min(data.activeLaneIndex, state.outputTokens.length - 1);
+          if (data.history) state.history = data.history;
+          if (data.wsPresets) state.wsPresets = data.wsPresets;
+          if (data.geminiSync) { state.geminiSync = data.geminiSync; initSettingsUI(); }
+          if (data.theme) { state.theme = data.theme; applyTheme(); }
+          if (data.layout) {
+            state.layout = data.layout;
+            $('sidebar').style.width = state.layout.sidebarWidth;
+            $('right-sidebar').style.width = state.layout.rightSidebarWidth;
+            if ($('detail-area')) $('detail-area').style.height = state.layout.detailHeight;
+          }
+        }
+        state.items.forEach(updateAutoTags);
+      });
+      renderChips(); renderHistory(); renderWsPresets();
+      showToast("インポートが完了しました");
+    } catch (err) { console.error(err); alert("インポートに失敗しました。"); }
+  }; r.readAsText(inp.files[0]);
+};
+const downloadWorkflow = (id, e) => { stopProp(e); const i = getItem(id); if (!i || !i.meta) return; try { const m = JSON.parse(i.meta); const wf = typeof m.workflow === 'string' ? JSON.parse(m.workflow) : m.workflow; if (!wf) return alert("ワークフローデータが見つかりません。"); const a = createEl('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(wf, null, 2)], { type: 'application/json' })); a.download = `comfy_workflow_${i.en.slice(0, 20) || id}.json`; a.click(); showToast("Workflow JSONをダウンロードしました"); } catch (err) { alert("JSONの解析に失敗しました。"); } };
+const copyText = (txt, e) => { if (txt) navigator.clipboard.writeText(txt).then(() => showToast("コピーしました", e)).catch(err => console.error('Copy failed', err)); };
+const copyPrompt = (id, e) => { stopProp(e); const i = getItem(id); if (i) copyText(ensureComma(i.en.trim()), e); };
+const copySelectedPrompts = (id, e) => { copyText(ensureComma(state.items.filter(i => getTgtIds(id).includes(i.id)).map(i => i.en).filter(Boolean).join(', ')), e); };
+
+/* =========================================
+   Event Listeners (Keyboard & Initialization)
+   ========================================= */
+window.addEventListener('keydown', e => {
+  const t = e.target.tagName;
+  if (e.key === 'Escape') { $$('.modal-overlay').forEach(m => m.style.display = 'none'); $('context-menu').style.display = 'none'; clearChipSelection(); return; }
+  if ((t === 'TEXTAREA' && !e.target.classList.contains('locked-textarea')) || t === 'INPUT') return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') { e.preventDefault(); toggleEditMode(); }
+  if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) { e.preventDefault(); redo(); }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') { e.preventDefault(); copySelectedPrompts(null, e); }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowUp') { e.preventDefault(); adjustSelectedChipsWeight(0.05); }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowDown') { e.preventDefault(); adjustSelectedChipsWeight(-0.05); }
+  if (e.key === '/') { e.preventDefault(); const s = $('searchInput'); if(s) { s.focus(); s.select(); } }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && state.selectedChips.length > 0) { e.preventDefault(); withChipUpdate('チップ削除', () => { removeChipsByPaths(getTgtChips(), [...state.selectedChips]); state.selectedChips = []; }); }
+});
+window.addEventListener('paste', e => { const t = e.target.tagName; if (t === 'TEXTAREA' || t === 'INPUT') return; const txt = (e.clipboardData || window.clipboardData).getData('text'); if (txt) { e.preventDefault(); addTextAsChips(txt, e); } });
+window.onload = async () => { await dbOpen(); await initData(); initResizers(); initGlobalFileDragEvents(); initWorkspaceFileDrop(); initQuickAddFileDrop(); renderFilters(); renderMain(); renderChips(); setSort(state.sortType); updateUndoRedoUI(); scrollToBottom(); };
+</script>
+</body>
+</html>
