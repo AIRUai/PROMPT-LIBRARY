@@ -160,7 +160,6 @@
     .thumb-container.drag-over-thumb::before, body.file-dragging .thumb-container.drag-over-thumb::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; border: 2px dashed var(--accent-color); background: rgba(129, 140, 248, 0.1); pointer-events: none; z-index: 500; animation: none !important; opacity: 1 !important; }
     .item-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; align-items: center; }
     .item-tag { font-size: .65rem; background: var(--tag-bg); border: 1px solid var(--tag-border); padding: 2px 6px; border-radius: 8px; color: var(--text-color); }
-    .selected-row .item-tag:not(.missing-tag) { color: var(--accent-color); border-color: var(--accent-color); background: rgba(129, 140, 248, 0.1); }
     /* メモありセルのホバー演出 */
     .prompt-content-cell[title]:hover .note-icon { color: var(--accent-hover) !important; transform: scale(1.2); opacity: 1 !important; }
     .note-icon { transition: transform 0.2s ease, color 0.2s ease, opacity 0.2s ease; }
@@ -1417,7 +1416,7 @@ const createRow = item => {
       <div class="prompt-content-row">
         ${['ja','en'].map(k => `<div class="textarea-wrapper" style="${k==='ja'?'margin-bottom:4px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 4px;':''}"><div id="bd-${escapeHTML(item.id)}-${escapeHTML(k)}" class="highlight-backdrop">${hlHTML(item[k],state.searchQuery)}</div><textarea id="grid-${escapeHTML(item.id)}-${escapeHTML(k)}" class="grid-textarea" onfocus="selectItem('${escJS(item.id)}', event); recordChange('編集');" onkeydown="confirmAndMove('${escJS(item.id)}','${escJS(k)}',event)" oninput="updateCell('${escJS(item.id)}','${escJS(k)}',this.value);if(state.searchQuery)$('bd-${escJS(item.id)}-${escJS(k)}').innerHTML=hlHTML(this.value,state.searchQuery);">${escapeHTML(item[k])}</textarea></div>`).join('')}
       </div>
-      <div class="item-tags" style="border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 6px; margin-top: 4px; display:flex; align-items:center;">${generateStarHtml(item.star, true, item.id)}${noteIcon}${sortTags(item.tags).map(t => generateTagHtml(t, true, item.id)).join('')}</div>
+      <div class="item-tags" style="border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 6px; margin-top: 4px; display:flex; align-items:center;">${generateStarHtml(item.star, true, item.id)}${noteIcon}${sortTags(item.tags).map(t => generateTagHtml(t, false, item.id)).join('')}</div>
     </td>
     <td class="drag-handle-cell"><span class="material-symbols-outlined">drag_indicator</span></td>`; // Keep this for drag handle
   
@@ -1512,7 +1511,7 @@ const refreshItemTagsUI = id => {
     const tc = row.querySelector('.item-tags');
     if (tc) {
       const noteIcon = generateNoteIconHtml(i.note, state.searchQuery);
-      tc.innerHTML = `${generateStarHtml(i.star, true, i.id)}${noteIcon}${sortTags(i.tags).map(t => generateTagHtml(t, true, i.id)).join('')}`;
+      tc.innerHTML = `${generateStarHtml(i.star, true, i.id)}${noteIcon}${sortTags(i.tags).map(t => generateTagHtml(t, false, i.id)).join('')}`;
     }
     const cell = row.querySelector('.prompt-content-cell');
     if (cell) cell.title = i.note && i.note.trim() ? 'MEMO: ' + i.note : '';
