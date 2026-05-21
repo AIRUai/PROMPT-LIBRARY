@@ -519,19 +519,18 @@
             <span><span class="material-symbols-outlined mr-6">star</span>Rating</span>
             <div style="display:flex; align-items:center;">
               <div class="toggle-group">
-                <button class="toggle-item" id="op-ge" onclick="setFilterStarOp('>=')">≥</button>
+                <button class="toggle-item" id="op-ge" onclick="setFilterStarOp('>=')">以上</button>
                 <button class="toggle-item" id="op-eq" onclick="setFilterStarOp('===')">=</button>
-                <button class="toggle-item" id="op-le" onclick="setFilterStarOp('<=')">≤</button>
+                <button class="toggle-item" id="op-le" onclick="setFilterStarOp('<=')">以下</button>
               </div>
-              <button class="btn-icon-sm" onclick="setFilterStar(0)" title="解除"><span class="material-symbols-outlined">restart_alt</span></button>
+              <button class="btn-icon-sm" onclick="setFilterStar(null)" title="解除"><span class="material-symbols-outlined">restart_alt</span></button>
             </div>
           </div>
-          <div id="filter-stars" class="star-rating">
-            <span class="material-symbols-outlined" onclick="setFilterStar(1)">star</span>
-            <span class="material-symbols-outlined" onclick="setFilterStar(2)">star</span>
-            <span class="material-symbols-outlined" onclick="setFilterStar(3)">star</span>
-            <span class="material-symbols-outlined" onclick="setFilterStar(4)">star</span>
-            <span class="material-symbols-outlined" onclick="setFilterStar(5)">star</span>
+          <div id="filter-stars" class="toggle-group" style="width: 100%; display: flex;">
+            <button class="toggle-item" style="flex:1;" onclick="setFilterStar(0)" data-val="0">0</button>
+            <button class="toggle-item" style="flex:1;" onclick="setFilterStar(1)" data-val="1">★1</button>
+            <button class="toggle-item" style="flex:1;" onclick="setFilterStar(2)" data-val="2">★2</button>
+            <button class="toggle-item" style="flex:1;" onclick="setFilterStar(3)" data-val="3">★3</button>
           </div>
         </div>
         <div class="filter-section" id="filter-section-tags" style="flex-grow:1; display:flex; flex-direction:column; border-bottom:none;">
@@ -784,7 +783,7 @@ const dbSet = async (k, v) => { try { localStorage.setItem(k, JSON.stringify(v))
 /* State Management */
 const DEFAULT_SYSTEM_PROMPT = "以下の日本語を、画像生成AI(Stable Diffusion等)で使われるような英語のカンマ区切りのプロンプトタグ（名詞や短いフレーズの羅列）に翻訳してください。出力は英語のプロンプトのみとし、説明やマークダウンは含めないでください。";
 const DEFAULT_VISION_PROMPT = "この画像の内容（キャラクター、服装、背景など）を分析し、画像生成AIで使用されるような英語のプロンプトタグ（名詞や短いフレーズの羅列）として、カンマ区切りで出力してください。解説や完全な文章は含めず、英語のタグのみを出力してください。";
-let state = { items: [], activeItemId: null, selectedIds: [], outputTokens: [{chips: []}], history: [], wsPresets: [], searchQuery: "", tagSearchQuery: "", pendingWsInput: "", pendingThumb: "", pendingMeta: null, activeLaneIndex: 0, filterTags: [], filterStar: 0, filterStarOp: '===', filterTagLogic: 'OR', filterTagsNot: [], sortType: 'manual', sortOrder: 'desc', selectedChips: [], historyFilter: 'all', editMode: true, theme: 'dark', geminiSync: { apiKey: "", systemPrompt: "", visionPrompt: "", model: "" }, initialized: false, layout: { sidebarWidth: '280px', rightSidebarWidth: '450px', detailHeight: '500px' } };
+let state = { items: [], activeItemId: null, selectedIds: [], outputTokens: [{chips: []}], history: [], wsPresets: [], searchQuery: "", tagSearchQuery: "", pendingWsInput: "", pendingThumb: "", pendingMeta: null, activeLaneIndex: 0, filterTags: [], filterStar: null, filterStarOp: '===', filterTagLogic: 'OR', filterTagsNot: [], sortType: 'manual', sortOrder: 'desc', selectedChips: [], historyFilter: 'all', editMode: true, theme: 'dark', geminiSync: { apiKey: "", systemPrompt: "", visionPrompt: "", model: "" }, initialized: false, layout: { sidebarWidth: '280px', rightSidebarWidth: '450px', detailHeight: '500px' } };
 let lastSelectedId = null, lastSelectedChipIdx = null, dragContext = { ids: [] }, undoStack = [], redoStack = [];
 const getItem = id => state.items.find(x => x.id === id);
 const getTgtLane = () => state.outputTokens[state.activeLaneIndex] || state.outputTokens[0];
@@ -865,7 +864,7 @@ const generateTagHtml = (t, hasClose = false, itemId = null) => {
   return `<div class="${cls}" ${click}>${escapeHTML(t)}${delBtn}</div>`;
 };
 const generateStarHtml = (star, editable = false, id = null) => {
-  const stars = [1, 2, 3, 4, 5].map(i => `<span class="material-symbols-outlined" style="font-size:${editable ? '1rem' : '0.85rem'};color:${i <= star ? 'var(--star-color)' : (editable ? 'var(--text-dim)' : 'var(--border-color)')};font-variation-settings:'FILL' ${i <= star ? 1 : 0};cursor:pointer;" ${editable ? `onclick="setItemProp('${id}','star',${star === i ? 0 : i},'評価')"` : ''}>star</span>`).join('');
+  const stars = [1, 2, 3].map(i => `<span class="material-symbols-outlined" style="font-size:${editable ? '1rem' : '0.85rem'};color:${i <= star ? 'var(--star-color)' : (editable ? 'var(--text-dim)' : 'var(--border-color)')};font-variation-settings:'FILL' ${i <= star ? 1 : 0};cursor:pointer;" ${editable ? `onclick="setItemProp('${id}','star',${star === i ? 0 : i},'評価')"` : ''}>star</span>`).join('');
   return `${editable ? '<div class="star-rating" style="gap:0; font-size:1rem;">' : '<div style="display:flex; gap:0; margin-right:8px; align-items:center;">'}${stars}</div>`;
 };
 
@@ -1084,7 +1083,7 @@ const initData = async () => {
   const savedItems = await dbGet(DB_KEY);
   state.items = Array.isArray(savedItems) ? savedItems : [];
   if (state.items.length === 0) {
-    state.items.push({ id: "item-" + Date.now(), tags: [TAG_UNCLASS], star: 5, ja: "ここに追加した意味を入力", en: "masterpiece", note: "初期プロンプト", createdAt: Date.now(), updatedAt: Date.now() });
+    state.items.push({ id: "item-" + Date.now(), tags: [TAG_UNCLASS], star: 3, ja: "ここに追加した意味を入力", en: "masterpiece", note: "初期プロンプト", createdAt: Date.now(), updatedAt: Date.now() });
   }
   state.items.forEach(updateAutoTags);
   state.outputTokens = await dbGet(CHIPS_KEY) || [{name: "LANE 1", chips: []}]; state.history = await dbGet(HISTORY_KEY) || []; state.wsPresets = await dbGet(WS_PRESETS_KEY) || []; state.activeLaneIndex = 0;
@@ -1140,17 +1139,21 @@ const handleSearch = q => { state.searchQuery = q; if ($('searchInput')) $('sear
 const handleTagSearch = q => { state.tagSearchQuery = q; renderFilters(); };
 const setFilterStarOp = op => { state.filterStarOp = op; renderFilters(); refreshMain(); };
 const setFilterTagLogic = l => { state.filterTagLogic = l; renderFilters(); refreshMain(); };
-const setFilterStar = s => { state.filterStar = (state.filterStar === s) ? 0 : s; if (state.filterStar === 0) state.filterStarOp = '==='; renderFilters(); refreshMain(); };
+const setFilterStar = s => { state.filterStar = (state.filterStar === s) ? null : s; if (state.filterStar === null) state.filterStarOp = '==='; renderFilters(); refreshMain(); };
 const toggleFilterTag = t => { state.filterTagsNot = state.filterTagsNot.filter(x => x !== t); state.filterTags.includes(t) ? state.filterTags = state.filterTags.filter(x => x !== t) : state.filterTags.push(t); renderFilters(); refreshMain(); };
 const toggleFilterTagNot = (t, e) => { stopProp(e); if(e) e.preventDefault(); state.filterTags = state.filterTags.filter(x => x !== t); state.filterTagsNot.includes(t) ? state.filterTagsNot = state.filterTagsNot.filter(x => x !== t) : state.filterTagsNot.push(t); renderFilters(); refreshMain(); };
 const clearTagFilter = () => { state.filterTags = []; state.filterTagsNot = []; state.filterTagLogic = 'OR'; state.tagSearchQuery = ""; if ($('tagSearchInput')) $('tagSearchInput').value = ""; renderFilters(); refreshMain(); };
-const resetAllFilters = () => { Object.assign(state, {searchQuery: "", tagSearchQuery: "", filterStar: 0, filterStarOp: '===', filterTags: [], filterTagsNot: [], filterTagLogic: 'OR', sortType: 'manual', sortOrder: 'desc'}); if ($('searchInput')) $('searchInput').value = ""; if ($('tagSearchInput')) $('tagSearchInput').value = ""; renderFilters(); refreshMain(); };
+const resetAllFilters = () => { Object.assign(state, {searchQuery: "", tagSearchQuery: "", filterStar: null, filterStarOp: '===', filterTags: [], filterTagsNot: [], filterTagLogic: 'OR', sortType: 'manual', sortOrder: 'desc'}); if ($('searchInput')) $('searchInput').value = ""; if ($('tagSearchInput')) $('tagSearchInput').value = ""; renderFilters(); refreshMain(); };
 
 const renderFilters = () => {
   $$('#tab-filters .toggle-group .toggle-item').forEach(el => el.classList.remove('active'));
   const opId = { '>=': 'op-ge', '===': 'op-eq', '<=': 'op-le' }[state.filterStarOp]; if ($(opId)) $(opId).classList.add('active');
   const logicId = state.filterTagLogic === 'AND' ? 'logic-and' : 'logic-or'; if ($(logicId)) $(logicId).classList.add('active');
-  $$('#filter-stars span').forEach((el, i) => el.classList.toggle('active', i < state.filterStar));
+  
+  $$('#filter-stars .toggle-item').forEach(el => {
+    const v = parseInt(el.getAttribute('data-val'));
+    el.classList.toggle('active', state.filterStar === v);
+  });
   const tl = $('filter-tags'); if (!tl) return; tl.innerHTML = ''; const dl = $('tag-datalist'); if (dl) dl.innerHTML = '';
   
   const cRes = state.items.filter(checkFilter), bRes = state.items.filter(checkBaseFilter), tagsInRes = new Set(cRes.flatMap(i => i.tags));
@@ -1161,7 +1164,7 @@ const renderFilters = () => {
 
   // Toggle Active Highlight Classes
   $('search-box-area').classList.toggle('filter-active-area', state.searchQuery.length > 0);
-  $('filter-section-rating').classList.toggle('filter-active-area', state.filterStar > 0);
+  $('filter-section-rating').classList.toggle('filter-active-area', state.filterStar !== null);
   $('filter-section-tags').classList.toggle('filter-active-area', state.filterTags.length > 0 || state.filterTagsNot.length > 0 || state.tagSearchQuery.length > 0);
 
   if (disT.length === 0 && state.tagSearchQuery) {
@@ -1195,7 +1198,7 @@ const toggleQaOverride = () => { qaTagOverride = (qaTagOverride === null) ? [TAG
 const checkBaseFilter = i => {
   const terms = parseQ(state.searchQuery), tgt = normStr(`${i.ja} ${i.en} ${i.note}`);
   if (terms.length && !terms.every(t => tgt.includes(normStr(t)))) return false;
-  if (state.filterStar > 0 && !(state.filterStarOp === '>=' ? i.star >= state.filterStar : state.filterStarOp === '===' ? i.star === state.filterStar : i.star <= state.filterStar)) return false;
+  if (state.filterStar !== null && !(state.filterStarOp === '>=' ? i.star >= state.filterStar : state.filterStarOp === '===' ? i.star === state.filterStar : i.star <= state.filterStar)) return false;
   return true;
 };
 const checkFilter = i => checkBaseFilter(i) && (!state.filterTags.length || (state.filterTagLogic === 'AND' ? state.filterTags.every(t => i.tags.includes(t)) : state.filterTags.some(t => i.tags.includes(t)))) && (!state.filterTagsNot.length || !state.filterTagsNot.some(t => i.tags.includes(t)));
