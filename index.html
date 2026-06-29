@@ -2169,7 +2169,7 @@ const getFormattedSegment = (chip, currentFullText) => {
   let prefix = "";
   let segment = p;
 
-  const endsWithSpecial = /[\n]|\bBREAK\s$|\{$|\|$/.test(currentFullText);
+  const endsWithSpecial = /\n$|\bBREAK\s$|\{$|\|$/.test(currentFullText);
 
   if (p === '\n' || p === 'BREAK') {
     // 前方のカンマやスペースを掃除してから結合
