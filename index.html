@@ -98,7 +98,7 @@
     .tag-chip.active:hover, .tag-chip.not-active:hover { filter: brightness(1.1); }
     .tag-chip.active:hover { box-shadow: 0 0 8px var(--active-glow); }
     .tag-chip.not-active:hover { box-shadow: 0 0 8px rgba(255, 77, 77, 0.4); }
-    .tag-chip.grayed-out { opacity: 0.25; filter: grayscale(1); pointer-events: none; }
+    .tag-chip.grayed-out { opacity: 0.4; filter: grayscale(0.5); }
     .tag-chip.active { background: var(--active-bg-color); color: var(--accent-color); font-weight: 400; box-shadow: inset 3px 0 0 0 var(--accent-color); border-radius: 2px 4px 4px 2px; }
     .tag-chip.missing-tag { color: var(--danger-color); opacity: 0.6; transition: opacity 0.2s; border: 1px solid var(--danger-color); background: rgba(255, 77, 77, 0.1); }
     .tag-chip.missing-tag.active, .tag-chip.missing-tag:hover { opacity: 1; }
@@ -292,7 +292,6 @@
     }
 
     .folder-header.has-active-child { color: var(--accent-color); }
-    .folder-header.has-active-child > span:nth-child(1) { font-variation-settings: 'FILL' 1; }
 
     .folder-content {
       display: flex;
@@ -600,7 +599,7 @@
       <div class="shortcut-list">
         <div class="shortcut-item"><span>元に戻す / やり直し</span><span class="shortcut-key">Ctrl+Z / Y</span></div>
         <div class="shortcut-item"><span>AI翻訳 / Google翻訳実行</span><span class="shortcut-key">Ctrl + Enter</span></div>
-        <div class="shortcut-item"><span>選択項目の英語をコピー</span><span class="shortcut-key">Ctrl + C</span></div>
+        <div class="shortcut-item"><span>選択項目のプロンプトをコピー</span><span class="shortcut-key">Ctrl + C</span></div>
         <div class="shortcut-item"><span>クイック追加 (次へ / 確定)</span><span class="shortcut-key">Enter</span></div>
         <div class="shortcut-item"><span>チップの強調 (強 / 弱)</span><span class="shortcut-key">Ctrl + ↑ / ↓</span></div>
         <div class="shortcut-item"><span>範囲選択</span><span class="shortcut-key">Shift + Click</span></div>
@@ -672,7 +671,7 @@
                 <button class="toggle-item" id="logic-or" onclick="setFilterTagLogic('OR')">OR</button>
               </div>
               <button class="btn-icon-sm" onclick="cleanupUnusedTags()" title="未使用タグをマスターから一括削除"><span class="material-symbols-outlined">cleaning_services</span></button>
-              <button class="btn-icon-sm" onclick="clearTagFilter()" title="フィルタ解除"><span class="material-symbols-outlined">restart_alt</span></button>
+              <button class="btn-icon-sm" onclick="clearTagFilter(true)" title="フィルタ解除＆全フォルダを閉じる"><span class="material-symbols-outlined">restart_alt</span></button>
             </div>
           </div>
           <div style="margin-bottom: 10px;">
@@ -752,7 +751,8 @@
           <div class="filter-title"><span><span class="material-symbols-outlined mr-6">database</span>データ管理</span></div>
           <div class="detail-group" style="gap:10px;">
             <button onclick="exportJSON()" class="btn"><span class="material-symbols-outlined mr-6">upload</span>JSON エクスポート</button>
-            <button onclick="$('importInput').click()" class="btn"><span class="material-symbols-outlined mr-6">download</span>JSON インポート</button>
+            <button onclick="triggerImport('overwrite')" class="btn" style="border-color: var(--danger-color); color: var(--danger-color);"><span class="material-symbols-outlined mr-6">download</span>JSON インポート (上書き)</button>
+            <button onclick="triggerImport('merge')" class="btn" style="border-color: var(--accent-color); color: var(--accent-color);"><span class="material-symbols-outlined mr-6">download</span>JSON インポート (追加)</button>
           </div>
         </div>
 
@@ -791,8 +791,8 @@
               <option value="createdAt">作成日時</option>
               <option value="updatedAt">更新日時</option>
               <option value="star">評価</option>
-              <option value="en">名前 (英)</option>
-              <option value="ja">名前 (日)</option>
+              <option value="en">プロンプト</option>
+              <option value="ja">タイトル</option>
               <option value="tags">タグ</option>
               <option value="len">プロンプト長</option>
             </select>
@@ -815,11 +815,11 @@
             <span class="material-symbols-outlined qa-thumb-remove" onclick="clearPendingThumb()">close</span>
           </div>
           <div class="qa-wrapper" style="width:35%;">
-            <textarea id="qa-ja" placeholder="日本語 (Ctrl+Enterで翻訳)" onkeydown="handleQaJaKey(event)" autocomplete="off" spellcheck="false"></textarea>
+            <textarea id="qa-ja" placeholder="タイトル (Ctrl+EnterでAI翻訳)" onkeydown="handleQaJaKey(event)" autocomplete="off" spellcheck="false"></textarea>
             <button class="btn-icon-sm" style="color:var(--accent-color); flex-shrink:0; margin-right:4px;" onclick="translateQuickAdd()" title="Geminiで翻訳" id="btn-qa-translate"><span class="material-symbols-outlined">smart_toy</span></button>
           </div>
           <div class="qa-wrapper" style="flex:1;">
-            <textarea id="qa-en" placeholder="English (Ctrl+Enterで翻訳 / Enterで確定)" onkeydown="handleQaEnKey(event)" autocomplete="off" spellcheck="false"></textarea>
+            <textarea id="qa-en" placeholder="プロンプト (Enterで追加 / Ctrl+EnterでGoogle翻訳)" onkeydown="handleQaEnKey(event)" autocomplete="off" spellcheck="false"></textarea>
             <button class="btn-icon-sm" style="color:var(--text-dim); flex-shrink:0; margin-right:4px;" onclick="openGoogleTranslate()" title="Google翻訳で開く" id="btn-google-translate"><span class="material-symbols-outlined">g_translate</span></button>
           </div>
           <button id="btn-qa-send" class="qa-btn" onclick="quickAdd()" aria-label="追加"><span class="material-symbols-outlined">send</span></button>
@@ -866,7 +866,8 @@ let state = {
   collapsedFolders: [], 
   modalCollapsedFolders: [], 
   addingNewTo: null, renamingPath: null,
-  suggestionIdx: -1, currentSuggestions: []
+  suggestionIdx: -1, currentSuggestions: [],
+  importMode: 'merge'
 };
 
 let lastSelectedId = null;
@@ -1093,8 +1094,14 @@ const showContextMenu = (e, id) => {
   const isThumbVisible = getTgtIds(id).some(tid => getItem(tid)?.thumb);
   const isChipsVisible = state.selectedMainChips.itemId === id && state.selectedMainChips.indices.length > 0;
 
-  toggleDisplay(['cm-copy', 'cm-clone', 'cm-delete', 'cm-sep-edit', 'cm-sep-delete'], true);
-  if (isChipsVisible) toggleDisplay('cm-copy-chips', true);
+  toggleDisplay(['cm-clone', 'cm-delete', 'cm-sep-edit', 'cm-sep-delete'], true);
+  if (isChipsVisible) {
+    toggleDisplay('cm-copy-chips', true);
+    toggleDisplay('cm-copy', false);
+  } else {
+    toggleDisplay('cm-copy', true);
+    toggleDisplay('cm-copy-chips', false);
+  }
   if (isThumbVisible) {
     toggleDisplay(['cm-sep-media', 'cm-delete-thumb'], true);
   }
@@ -1432,7 +1439,32 @@ const toggleFilterTag = (t, isExclude = false) => {
   }
   renderFilters(); refreshMain();
 };
-const clearTagFilter = () => { state.filterTags = []; state.filterTagsNot = []; state.filterTagLogic = 'OR'; state.tagSearchQuery = ""; if ($('tagSearchInput')) $('tagSearchInput').value = ""; renderFilters(); refreshMain(); };
+const clearTagFilter = (collapseAll = false) => {
+  state.filterTags = [];
+  state.filterTagsNot = [];
+  state.filterTagLogic = 'OR';
+  state.tagSearchQuery = "";
+  if ($('tagSearchInput')) $('tagSearchInput').value = "";
+
+  if (collapseAll) {
+    const allFolderPaths = new Set();
+    state.allTags.forEach(t => {
+      const clean = t.endsWith('/') ? t.slice(0, -1) : t;
+      const parts = clean.split('/');
+      let path = "";
+      for (let i = 0; i < parts.length - (t.endsWith('/') ? 0 : 1); i++) {
+        path = path ? path + '/' + parts[i] : parts[i];
+        allFolderPaths.add(path);
+      }
+    });
+    allFolderPaths.add("__pinned__");
+    state.collapsedFolders = [...allFolderPaths];
+  }
+
+  save();
+  renderFilters();
+  refreshMain();
+};
 const toggleFavoriteTag = (path, e) => {
   if (e) { e.preventDefault(); e.stopPropagation(); }
   const idx = state.favoriteTags.indexOf(path);
@@ -1462,6 +1494,21 @@ const toggleFolder = (folderPath, e) => {
   }
 };
 
+const toggleFolderTags = (folderPath, e) => {
+  stopProp(e);
+  const descendantTags = state.allTags.filter(t => !t.endsWith('/') && t.startsWith(folderPath));
+  if (descendantTags.length === 0) return;
+
+  const allSelected = descendantTags.every(t => state.filterTags.includes(t));
+  if (allSelected) {
+    state.filterTags = state.filterTags.filter(t => !descendantTags.includes(t));
+  } else {
+    state.filterTags = [...new Set([...state.filterTags, ...descendantTags])];
+    state.filterTagsNot = state.filterTagsNot.filter(t => !descendantTags.includes(t));
+  }
+  renderFilters();
+  refreshMain();
+};
 const renameTagStructure = (dragData, targetPath) => {
   const { type, path: oldPath } = dragData;
   const isFolder = type === 'hier-folder';
@@ -1759,12 +1806,11 @@ const renderFilters = () => {
             onkeydown="if(event.key==='Enter')finalizeInlineRename(this.value); if(event.key==='Escape'){state.renamingPath=null;renderFilters();}">`;
         setTimeout(() => $('inline-rename-input')?.select(), 50);
       } else {
-        header = createEl('div', `folder-header ${hasActiveChild ? 'has-active-child' : ''}`, `<span class="material-symbols-outlined folder-icon" style="font-size:1rem; color:var(--accent-color);">folder${isCollapsed ? '' : '_open'}</span><span>${hlHTML(name, state.tagSearchQuery)}</span>`);
-        const uniqueItemsInFolder = new Set(state.items.filter(item => item.tags.some(tag => tag.startsWith(fullPath + '/'))).map(item => item.id));
+        const descendantTags = state.allTags.filter(t => !t.endsWith('/') && t.startsWith(folderPath));
+        const isAllSelected = descendantTags.length > 0 && descendantTags.every(t => state.filterTags.includes(t));
+        header = createEl('div', `folder-header ${isAllSelected ? 'active' : (hasActiveChild ? 'has-active-child' : '')}`, `<span class="material-symbols-outlined folder-icon" style="font-size:1rem; color:var(--accent-color); cursor:pointer;" onclick="toggleFolder('${escJS(fullPath)}', event)" title="開閉">folder${isCollapsed ? '' : '_open'}</span><span style="flex:1;" onclick="toggleFolderTags('${escJS(folderPath)}', event)" title="配下タグを一括選択/解除">${hlHTML(name, state.tagSearchQuery)}</span>`);
         const isFav = state.favoriteTags.includes(folderPath);
-        if (uniqueItemsInFolder.size > 0) header.innerHTML += `<span class="folder-tag-count">${uniqueItemsInFolder.size}</span>`;
         header.innerHTML += `<span class="material-symbols-outlined tag-favorite-btn ${isFav?'active':''}" onclick="toggleFavoriteTag('${escJS(folderPath)}', event)" style="margin-left:auto;">push_pin</span>`;
-        header.onclick = (e) => toggleFolder(fullPath, e);
         header.oncontextmenu = (e) => showTagContextMenu(e, folderPath, true, false, false);
         header.draggable = true;
         header.ondragstart = (e) => { 
@@ -1830,9 +1876,9 @@ const renderFilters = () => {
   const rootHeader = createEl('div', `folder-header ${hasActiveInRoot ? 'has-active-child' : ''}`, 
     `<span class="material-symbols-outlined folder-icon" style="font-size:1.1rem; color:var(--accent-color);">database</span><span>TAG TREE</span>`
   );
-  rootHeader.style.cursor = 'default';
-  const rootItemIds = new Set(state.items.map(i => i.id));
-  if (rootItemIds.size > 0) rootHeader.innerHTML += `<span class="folder-tag-count">${rootItemIds.size}</span>`; // This line was already present, no change needed.
+  rootHeader.style.cursor = 'pointer';
+  rootHeader.title = 'クリックでタグフィルターを解除';
+  rootHeader.onclick = (e) => { stopProp(e); clearTagFilter(); };
   rootHeader.oncontextmenu = e => showTagContextMenu(e, "", true, false, false);
   rootHeader.ondragover = e => { if (e.dataTransfer.types.includes('hier-folder') || e.dataTransfer.types.includes('hier-tag')) { e.preventDefault(); e.stopPropagation(); rootHeader.classList.add('drag-over'); } };
   rootHeader.ondragleave = () => rootHeader.classList.remove('drag-over');
@@ -2436,6 +2482,17 @@ const initTableEvents = () => {
   body.addEventListener('contextmenu', e => {
     const data = getTrData(e);
     if (!data) return;
+
+    // チップ以外の場所を右クリックした場合はチップ選択を自動解除
+    if (!e.target.closest('.prompt-chip') && state.selectedMainChips.itemId) {
+      const oid = state.selectedMainChips.itemId;
+      state.selectedMainChips = { itemId: null, indices: [] };
+      state.chipAnchorIdx = null;
+      state.activeChipRange = null;
+      refreshCellChips(oid);
+      updateBackdrops(oid);
+    }
+
     if (!(e.target.tagName === 'TEXTAREA' && !e.target.hasAttribute('readonly'))) {
       showContextMenu(e, data.id);
     }
@@ -2937,12 +2994,12 @@ const renderDetail = () => {
     </div>
     <div class="detail-section">
       <div class="detail-group">
-        <label class="detail-label">日本語 (TITLE)</label>
-        <textarea id="grid-detail-ja" class="detail-input detail-textarea grid-textarea" style="font-family: 'Noto Sans JP', sans-serif;" placeholder="日本語名称..." onfocus="recordChange('編集')" oninput="updateCell('${escJS(i.id)}','ja',this.value)">${escapeHTML(i.ja || '')}</textarea>
+        <label class="detail-label">タイトル</label>
+        <textarea id="grid-detail-ja" class="detail-input detail-textarea grid-textarea" style="font-family: 'Noto Sans JP', sans-serif;" placeholder="タイトル・意味..." onfocus="recordChange('編集')" oninput="updateCell('${escJS(i.id)}','ja',this.value)">${escapeHTML(i.ja || '')}</textarea>
       </div>
       <div class="detail-group">
         <div style="display:flex; align-items:center; gap:8px;">
-          <label class="detail-label">ENGLISH</label>
+          <label class="detail-label">プロンプト (PROMPT)</label>
           <div style="display:flex; gap:6px;">
             <button class="btn-inline-add" style="opacity:1; visibility:visible; transform:scale(1); background:var(--active-bg-color); color:var(--accent-color); width: 44px;" onclick="copyPrompt('${escJS(i.id)}',event)" title="コピー">
               <span class="material-symbols-outlined" style="font-size:1.1rem;">content_copy</span>
@@ -2958,7 +3015,7 @@ const renderDetail = () => {
         <div class="textarea-wrapper">
           <div id="bd-detail-en" class="highlight-backdrop" style="font-family: 'JetBrains Mono', monospace; font-size: .9rem; font-weight: 700;">${hlHTML(i.en, state.searchQuery, 'en', i.id)}</div>
           <textarea id="grid-detail-en" class="detail-input detail-textarea grid-textarea"
-            style="color: var(--accent-color);" placeholder="English Prompt..." 
+            style="color: var(--accent-color);" placeholder="プロンプトを入力..." 
             onfocus="recordChange('編集')" 
             oninput="updateCell('${escJS(i.id)}','en',this.value)">${escapeHTML(i.en || '')}</textarea>
         </div>
@@ -3037,16 +3094,37 @@ const splitRandContent = (content) => { const parts = []; let currentPart = '', 
 const parseTextToChips = (text) => {
   const chips = []; let i = 0;
   if (!text) return chips;
+  let lastChip = null;
+
   while (i < text.length) {
     if (text[i] === '{') {
       let balance = 0, j = i; while (j < text.length) { if (text[j] === '{') balance++; else if (text[j] === '}') balance--; if (balance === 0) break; j++; }
-      if (balance === 0 && j < text.length) { chips.push({ type: 'rand_open', text: '{' }); splitRandContent(text.substring(i + 1, j)).forEach((part, index, arr) => { chips.push(...parseTextToChips(part)); if (index < arr.length - 1) chips.push({ type: 'rand_sep', text: '|' }); }); chips.push({ type: 'rand_close', text: '}' }); i = j + 1; continue; }
+      if (balance === 0 && j < text.length) { 
+        const cOpen = { type: 'rand_open', text: '{' }; chips.push(cOpen); lastChip = cOpen;
+        splitRandContent(text.substring(i + 1, j)).forEach((part, index, arr) => { 
+          const sub = parseTextToChips(part);
+          if (sub.length) { chips.push(...sub); lastChip = sub[sub.length - 1]; }
+          if (index < arr.length - 1) { const cSep = { type: 'rand_sep', text: '|' }; chips.push(cSep); lastChip = cSep; }
+        }); 
+        const cClose = { type: 'rand_close', text: '}' }; chips.push(cClose); lastChip = cClose; 
+        i = j + 1; continue; 
+      }
     }
     const rem = text.substring(i);
-    if (rem.startsWith('BREAK')) { chips.push({ type: 'break' }); i += 'BREAK'.length; }
-    else if (rem.startsWith('\n')) { chips.push({ type: 'newline' }); i += '\n'.length; }
-    else if (rem.startsWith(',')) i++;
-    else { let k = i; while (k < text.length && !['{', '}', '|', '\n', ','].includes(text[k]) && !text.substring(k).startsWith('BREAK')) k++; const seg = text.substring(i, k).trim(); if (seg) chips.push({ type: 'text', text: seg }); if (k === i && ['{', '}', '|'].includes(text[i])) chips.push({ type: 'text', text: text[i] }); i = (k === i) ? i + 1 : k; }
+    if (rem.startsWith('BREAK')) { const cBreak = { type: 'break' }; chips.push(cBreak); lastChip = cBreak; i += 'BREAK'.length; }
+    else if (rem.startsWith('\n')) { const cNl = { type: 'newline' }; chips.push(cNl); lastChip = cNl; i += '\n'.length; }
+    else if ([',', '、', '。'].includes(text[i])) {
+      if (lastChip) lastChip.delim = text[i];
+      i++;
+    }
+    else { 
+      let k = i; 
+      while (k < text.length && !['{', '}', '|', '\n', ',', '、', '。'].includes(text[k]) && !text.substring(k).startsWith('BREAK')) k++; 
+      const seg = text.substring(i, k).trim(); 
+      if (seg) { const cText = { type: 'text', text: seg }; chips.push(cText); lastChip = cText; }
+      if (k === i && ['{', '}', '|'].includes(text[i])) { const cSym = { type: 'text', text: text[i] }; chips.push(cSym); lastChip = cSym; }
+      i = (k === i) ? i + 1 : k; 
+    }
   }
   return chips;
 };
@@ -3059,10 +3137,39 @@ const getChipText = c => {
 
 const formatChipsToString = (chips) => {
   let r = "";
-  chips.forEach(c => {
-    const { prefix, segment } = getFormattedSegment(c, r);
-    r = r.replace(/[ \t,]*$/, '') + prefix + segment;
-  }); return r.trim().replace(/,$/, '');
+  chips.forEach((c, idx) => {
+    const p = getChipText(c);
+    if (!p) return;
+
+    const endsWithSpecial = /\n$|\bBREAK\s$|\{$|\|$/.test(r) || /[、。,]$/.test(r);
+
+    let prefix = "";
+    if (r && !endsWithSpecial && !['{', '|', '}', '\n', 'BREAK'].includes(p)) {
+      const prevChip = chips[idx - 1];
+      const d = prevChip ? prevChip.delim : ',';
+      if (d === '、') prefix = '、';
+      else if (d === '。') prefix = '。';
+      else prefix = ', ';
+    }
+
+    if (p === 'BREAK') {
+      r = r.replace(/[ \t]*$/, '') + ' BREAK ';
+    } else if (p === '\n') {
+      r = r.replace(/[ \t]*$/, '') + '\n';
+    } else if (['{', '|', '}'].includes(p)) {
+      r += p;
+    } else {
+      r += prefix + p;
+    }
+  });
+
+  // 最後のチップが独自のデリミタ（末尾のカンマや読点・句点）を持っている場合は末尾に保持する
+  const lastChip = chips[chips.length - 1];
+  if (lastChip && lastChip.delim && !/[、。,]$/.test(r.trim())) {
+    r = r.trim() + lastChip.delim;
+  }
+
+  return r.trim();
 };
 
 const findRandScope = (chips, idx) => {
@@ -3211,7 +3318,18 @@ const describeImageWithAi = async (file) => {
     if (success) enEl.focus();
   }
 };
-const openInGoogleTranslate = (t) => { if (!t) return showToast("翻訳するテキストがありません"); window.open(`https://translate.google.com/?sl=auto&tl=ja&text=${encodeURIComponent(t.replace(/, /g, ',\n').replace(/,/g, ',\n'))}`, '_blank', 'noopener,noreferrer'); showToast("Google翻訳で開きました", 'success'); };
+const openInGoogleTranslate = (t) => { 
+  if (!t) return showToast("翻訳するテキストがありません"); 
+  const url = `https://translate.google.com/?sl=auto&tl=ja&text=${encodeURIComponent(t.replace(/, /g, ',\n').replace(/,/g, ',\n'))}`;
+  
+  // Ctrlキー押下によるブラウザの「バックグラウンド開き」仕様をタイマーで回避
+  setTimeout(() => {
+    const win = window.open(url, '_blank'); 
+    if (win) win.focus(); 
+  }, 20);
+
+  showToast("Google翻訳で開きました", 'success'); 
+};
 const openGoogleTranslate = () => { const e = $('qa-en'); openInGoogleTranslate(e ? e.value.trim() : ''); };
 const openItemInGoogleTranslate = (id, e) => { stopProp(e); const i = getItem(id); openInGoogleTranslate(i ? i.en.trim() : ''); };
 
@@ -3256,41 +3374,101 @@ const validateImportData = (data) => {
     return false;
   }
 };
+/** インポートの実行（モードを記録してからファイルピッカーを起動） */
+const triggerImport = (mode) => {
+  state.importMode = mode;
+  $('importInput').click();
+};
 const importJSON = inp => {
   const r = new FileReader();
   r.onload = async e => {
     try {
       const data = JSON.parse(e.target.result);
       if (!validateImportData(data)) return;
-      withMainUpdate(() => {
-        // 古いArray形式と新しいオブジェクト形式の両方に対応しつつロジックを整理
-        const importedItems = Array.isArray(data) ? data : data.items;
-        if (importedItems) state.items = importedItems;
+
+      const isMerge = state.importMode === 'merge';
+
+      // 選択したボタンの挙動に応じて、誤操作防止のための確認ダイアログの内容を変更
+      const confirmMsg = isMerge 
+        ? "選択したデータを現在のライブラリに【追加】しますか？\n（既存のプロンプトと重複するデータは自動的にスキップされます）"
+        : "注意：現在のライブラリデータをすべて削除し、選択したファイルで【完全に上書き】します。\n元に戻すことはできません。本当によろしいですか？";
         
-        if (!Array.isArray(data)) {
-          if (data.allTags) state.allTags = data.allTags;
-          if (data.theme) { state.theme = data.theme; applyTheme(); }
-          // 既存のAPIキーを消さないようにマージ(APIキーが空の場合のみ上書きを防ぐ)
-          if (data.geminiSync) { state.geminiSync = { ...state.geminiSync, ...data.geminiSync }; initSettingsUI(); }
-          if (data.layout) {
-            const { collapsedFolders, sortType, sortOrder, filterTagLogic, ...layoutProps } = data.layout;
-            state.layout = { ...state.layout, ...layoutProps };
-            if (collapsedFolders) state.collapsedFolders = collapsedFolders;
-            if (sortType) state.sortType = sortType;
-            if (sortOrder) state.sortOrder = sortOrder;
-            if (filterTagLogic) state.filterTagLogic = filterTagLogic;
-            if (data.layout.favoriteTags) state.favoriteTags = data.layout.favoriteTags;
-            
-            $('sidebar').style.width = state.layout.sidebarWidth;
-            $('right-sidebar').style.width = state.layout.rightSidebarWidth;
+      if (!confirm(confirmMsg)) return;
+
+      withMainUpdate(() => {
+        const importedItems = Array.isArray(data) ? data : data.items;
+        if (!importedItems) return;
+
+        if (isMerge) {
+          // --- 追加（マージ）インポート ---
+          let addedCount = 0;
+          let skippedCount = 0;
+          
+          const existingEnSet = new Set(state.items.map(it => (it.en || '').trim().toLowerCase()));
+          const existingIds = new Set(state.items.map(it => it.id));
+
+          importedItems.forEach((it, idx) => {
+            const enClean = (it.en || '').trim().toLowerCase();
+            if (enClean && existingEnSet.has(enClean)) {
+              skippedCount++;
+              return;
+            }
+
+            const newItem = structuredClone(it);
+            if (existingIds.has(newItem.id)) {
+              newItem.id = "item-" + (Date.now() + idx);
+            }
+            state.items.push(newItem);
+            existingIds.add(newItem.id);
+            addedCount++;
+          });
+
+          if (!Array.isArray(data)) {
+            if (data.allTags && Array.isArray(data.allTags)) {
+              state.allTags = [...new Set([...state.allTags, ...data.allTags])];
+            }
+            if (data.layout && data.layout.favoriteTags && Array.isArray(data.layout.favoriteTags)) {
+              state.favoriteTags = [...new Set([...state.favoriteTags, ...data.layout.favoriteTags])];
+            }
           }
+          showToast(`${addedCount} 件のアイテムを追加しました（${skippedCount} 件の重複をスキップ）`, 'success');
+
+        } else {
+          // --- 上書きインポート ---
+          state.items = importedItems;
+          
+          if (!Array.isArray(data)) {
+            if (data.allTags) state.allTags = data.allTags;
+            if (data.theme) { state.theme = data.theme; applyTheme(); }
+            if (data.geminiSync) { state.geminiSync = { ...state.geminiSync, ...data.geminiSync }; initSettingsUI(); }
+            if (data.layout) {
+              const { collapsedFolders, sortType, sortOrder, filterTagLogic, ...layoutProps } = data.layout;
+              state.layout = { ...state.layout, ...layoutProps };
+              if (collapsedFolders) state.collapsedFolders = collapsedFolders;
+              if (sortType) state.sortType = sortType;
+              if (sortOrder) state.sortOrder = sortOrder;
+              if (filterTagLogic) state.filterTagLogic = filterTagLogic;
+              if (data.layout.favoriteTags) state.favoriteTags = data.layout.favoriteTags;
+              
+              $('sidebar').style.width = state.layout.sidebarWidth;
+              $('right-sidebar').style.width = state.layout.rightSidebarWidth;
+            }
+          }
+          showToast("データを上書きインポートしました", 'success');
         }
+
         state.items.forEach(updateAutoTags);
-        initSettingsUI(); // UIの表示を更新
+        initSettingsUI();
       });
-      showToast("インポートが完了しました", 'success');
-    } catch (err) { console.error(err); alert("インポートに失敗しました。"); }
-  }; r.readAsText(inp.files[0]);
+
+    } catch (err) { 
+      console.error(err); 
+      alert("インポートに失敗しました。JSONの形式が正しくない可能性があります。"); 
+    } finally {
+      inp.value = '';
+    }
+  }; 
+  r.readAsText(inp.files[0]);
 };
 const showImageFull = (id, e) => {
   const i = getItem(id); if (!i || !i.thumb) return; stopProp(e);
@@ -3359,29 +3537,36 @@ const applyCopySettings = (text) => {
   const cMode = state.layout.copyCommaMode || 'after';
   const sMode = state.layout.copySpaceMode || 'none';
 
-  // カンマで分割して各タグごとに処理を行うことで、区切り文字としての空白とタグ内の空白を明確に分離する
-  let segments = text.split(',');
+  const tokens = text.split(/([,、。])/);
+  let result = "";
 
-  segments = segments.map(seg => {
+  for (let i = 0; i < tokens.length; i += 2) {
+    let seg = tokens[i];
+    const delim = tokens[i + 1] || "";
+
     if (cMode === 'none') {
-      // 「そのままコピー」の場合は、前後の余白（改行含む）を維持しつつ、タグの中身だけを変換する
-      return seg.replace(/^(\s*)(.*?)(\s*)$/s, (match, p1, p2, p3) => {
-        return p1 + transformTagSpaces(p2, sMode) + p3;
-      });
+      seg = seg.replace(/^(\s*)(.*?)(\s*)$/s, (match, p1, p2, p3) => p1 + transformTagSpaces(p2, sMode) + p3);
+      result += seg + delim;
     } else {
-      // 整形設定がある場合は、一旦トリムした上で変換を行う
-      return transformTagSpaces(seg.trim(), sMode);
+      seg = transformTagSpaces(seg.trim(), sMode);
+      if (!seg && !delim) continue;
+      
+      let sep = delim;
+      if (delim === ',') {
+        if (cMode === 'after') sep = ', ';
+        else if (cMode === 'both') sep = ' , ';
+        else if (cMode === 'no_space') sep = ',';
+      } else if (delim === '、') {
+        sep = '、';
+      } else if (delim === '。') {
+        sep = '。';
+      }
+      
+      result += seg + sep;
     }
-  });
+  }
 
-  // 指定された形式のセパレーターで再結合する
-  let separator = ',';
-  if (cMode === 'after') separator = ', ';
-  else if (cMode === 'both') separator = ' , ';
-  else if (cMode === 'no_space') separator = ',';
-  
-  // cMode: none の場合は segments 側に元の余白が残っているため、純粋なカンマで結合する
-  return segments.join(separator);
+  return result;
 };
 const updateCopySpaceMode = (val) => {
   state.layout.copySpaceMode = val;
@@ -3402,7 +3587,7 @@ const renderCopySettingsUI = () => {
   }
 };
 const copyText = (txt) => { if (txt) navigator.clipboard.writeText(txt).then(() => showToast("コピーしました", 'success')).catch(err => console.error('Copy failed', err)); };
-const copyPrompt = (id, e) => { stopProp(e); const i = getItem(id); if (i) copyText(applyCopySettings(ensureComma(i.en.trim()))); };
+const copyPrompt = (id, e) => { stopProp(e); const i = getItem(id); if (i) copyText(applyCopySettings(i.en.trim())); };
 const copySelectedPrompts = (id, e, forceChips = false) => {
   let textToCopy = '';
   const chipItemId = state.selectedMainChips.itemId;
@@ -3420,7 +3605,7 @@ const copySelectedPrompts = (id, e, forceChips = false) => {
     const targetItemIds = getTgtIds(id);
     textToCopy = state.items.filter(item => targetItemIds.includes(item.id)).map(item => item.en).filter(Boolean).join(',');
   }
-  copyText(applyCopySettings(ensureComma(textToCopy)));
+  copyText(applyCopySettings(textToCopy));
 };
 
 /* =========================================
@@ -3453,11 +3638,30 @@ window.addEventListener('keydown', e => {
   }
 });
 
+// 右詳細エリアの右クリックイベント処理（チップ以外ではアプリ独自メニューを出さず、選択解除のみ行う）
+const initRightSidebarEvents = () => {
+  const rs = $('right-sidebar');
+  if (!rs) return;
+  rs.addEventListener('contextmenu', e => {
+    if (!e.target.closest('.prompt-chip')) {
+      if (state.selectedMainChips.itemId) {
+        const oid = state.selectedMainChips.itemId;
+        state.selectedMainChips = { itemId: null, indices: [] };
+        state.chipAnchorIdx = null;
+        state.activeChipRange = null;
+        refreshCellChips(oid);
+        updateBackdrops(oid);
+      }
+      $('context-menu').style.display = 'none';
+    }
+  });
+};
+
 // Event listener setup
 window.addEventListener('click', handleGlobalClick, true);
 
 window.onload = async () => { 
-  await dbOpen(); await initData(); initResizers(); initGlobalFileDragEvents(); initQuickAddFileDrop(); initTableEvents(); renderFilters(); renderMain(); setSort(state.sortType); updateUndoRedoUI(); scrollToBottom(); 
+  await dbOpen(); await initData(); initResizers(); initGlobalFileDragEvents(); initQuickAddFileDrop(); initTableEvents(); initRightSidebarEvents(); renderFilters(); renderMain(); setSort(state.sortType); updateUndoRedoUI(); scrollToBottom(); 
 };
 </script>
 </body>
