@@ -2586,12 +2586,18 @@ const refreshMain = () => { syncAllTags(); save(); renderMain(); refreshTagUI();
 const quickAdd = () => {
   const j = $('qa-ja').value.trim(), e = $('qa-en').value.trim(); if (!e && !j) return;
   withMainUpdate(() => {
-    const id = "item-" + Date.now(), ni = { id, tags: [TAG_UNCLASS], star: 0, thumb: state.pendingThumb || "", meta: state.pendingMeta || "", ja: j, en: e, note: "", createdAt: Date.now(), updatedAt: Date.now() };
+    // 💡 1. 現在フィルターとして選択されているタグを取得（除外タグを除き、システムタグも除く）
+    const activeFilterTags = state.filterTags.filter(t => t !== TAG_MISSING && t !== TAG_UNCLASS && !t.endsWith('/'));
+    
+    // 💡 2. 選択中タグがあればそれを初期タグに、なければ [TAG_UNCLASS] を使う
+    const initialTags = activeFilterTags.length > 0 ? [...activeFilterTags] : [TAG_UNCLASS];
+
+    const id = "item-" + Date.now(), ni = { id, tags: initialTags, star: 0, thumb: state.pendingThumb || "", meta: state.pendingMeta || "", ja: j, en: e, note: "", createdAt: Date.now(), updatedAt: Date.now() };
     updateAutoTags(ni); state.items.push(ni); state.selectedIds = [id]; state.activeItemId = lastSelectedId = id;
     $('qa-ja').value = ''; $('qa-en').value = '';
     clearPendingThumb();
   });
-      showToast("アイテムを追加しました", 'success');
+  showToast("アイテムを追加しました", 'success');
   scrollToBottom(); setTimeout(() => { $('qa-ja')?.focus(); }, 150);
 };
 
